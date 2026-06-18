@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 64" fill="none">
+  <defs>
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F0E0C4"/>
+      <stop offset="50%" stop-color="#D4B896"/>
+      <stop offset="100%" stop-color="#A8845A"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#E8D5B5"/>
+      <stop offset="100%" stop-color="#BF9566"/>
+    </linearGradient>
+  </defs>
+  <path d="M44 32C36 18 22 10 8 14c8 5 14 14 16 24" stroke="url(#g1)" stroke-width="1.4"/>
+  <path d="M44 32c8-14 22-22 36-18-8 5-14 14-16 24" stroke="url(#g1)" stroke-width="1.4"/>
+  <path d="M44 32V48" stroke="#D4B896" stroke-width="1.2"/>
+  <path d="M36 24l8-6 8 6" stroke="#C9A86C" stroke-width="1"/>
+  <path d="M30 28l14-2 14 2" stroke="#A8845A" stroke-width="0.8"/>
+  <circle cx="44" cy="26" r="3" fill="url(#g2)"/>
+  <path d="M20 36c4 4 12 6 24 6s20-2 24-6" stroke="#BF9566" stroke-width="0.9"/>
+  <path d="M12 20l5 3-2 5" stroke="#E8D5B5" stroke-width="0.7"/>
+  <path d="M26 16l4 4-4 4" stroke="#D4B896" stroke-width="0.6"/>
+</svg>
