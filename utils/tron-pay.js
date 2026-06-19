@@ -39,8 +39,8 @@ const WALLET_META = {
       }))
       return `tronlinkoutside://pull.activity?param=${param}`
     },
-    hasWaitMethod: true, // 有tronWeb.wait()方法
-    needRequestAccounts: true // 需要主动请求授权
+    hasWaitMethod: true,
+    needRequestAccounts: true
   },
   tokenpocket: {
     name: 'TokenPocket',
@@ -49,7 +49,7 @@ const WALLET_META = {
       return `tpdapp://open?params=${encodeURIComponent(JSON.stringify({ url, chain: 'TRX' }))}`
     },
     hasWaitMethod: false,
-    needRequestAccounts: false // 自动注入地址，无需主动授权
+    needRequestAccounts: false
   },
   imtoken: {
     name: 'imToken',
@@ -60,7 +60,7 @@ const WALLET_META = {
     hasWaitMethod: false,
     needRequestAccounts: false
   },
-  bitkeep: { // 修正原bitget为bitkeep（BitKeep钱包）
+  bitkeep: {
     name: 'BitKeep',
     download: 'https://web3.bitget.com/',
     buildDeepLink(url) {
@@ -68,17 +68,17 @@ const WALLET_META = {
     },
     hasWaitMethod: false,
     needRequestAccounts: true,
-    tronWebAlias: 'bitkeepTronWeb' // BitKeep注入的tronWeb别名
+    tronWebAlias: 'bitkeepTronWeb'
   }
 }
 
-// 格式化地址
+// 格式化短地址
 export function formatAddressShort(address = '') {
   if (!address || address.length < 10) return address || '--'
   return `${address.slice(0, 6)}...${address.slice(-4)}`
 }
 
-// 金额转换（原有逻辑保留）
+// USDT 金额转链上单位 1e6
 export function toUsdtAmount(value) {
   const num = parseFloat(value || '0')
   if (!num || Number.isNaN(num)) return '0'
@@ -95,6 +95,7 @@ export function fromUsdtAmount(raw) {
   return num.toFixed(2)
 }
 
+// SUN 转 TRX
 export function fromTrxAmount(sun) {
   let value = sun
   if (sun != null && typeof sun === 'object') {
@@ -117,88 +118,87 @@ export function toTrxSun(value) {
   return Math.round(num * 1e6)
 }
 
-// 【优化】多钱包适配的tronWeb获取逻辑
+// 获取对应钱包注入的 tronWeb（修复：移除无效 imTokenTronWeb 全局判断）
 export function getTronWeb(walletId = '') {
   if (typeof window === 'undefined') return null
-  
-  // 1. 优先按钱包类型获取专属tronWeb
+
   if (walletId === 'bitkeep' && window[WALLET_META.bitkeep.tronWebAlias]) {
     return window[WALLET_META.bitkeep.tronWebAlias]
   }
-  
-  // 2. 通用获取逻辑
+
   const commonTronWeb = window.tronWeb || window.tronLink?.tronWeb
   if (commonTronWeb) return commonTronWeb
-  
-  // 3. 兜底检测所有可能的注入对象
+
   return window.bitkeepTronWeb || window.tpTronWeb || null
 }
 
-// 【优化】适配不同钱包的等待/授权逻辑
-export async function waitForTronWeb(walletId = '', timeout = 10000) {
+// 等待 tronWeb 注入，缩短超时，适配 imToken 沙箱限制
+export async function waitForTronWeb(walletId = '', timeout = 8000) {
   const start = Date.now()
   const walletMeta = WALLET_META[walletId] || WALLET_META.tokenpocket
-  
-  while (Date.now() - start < timeout) {
+  const realTimeout = timeout
+
+  while (Date.now() - start < realTimeout) {
     const tronWeb = getTronWeb(walletId)
     if (tronWeb) {
-      // 适配wait方法：仅TronLink等有该方法的钱包执行
-      if (walletMeta.hasWaitMethod && typeof tronWeb.ready === 'boolean' && !tronWeb.ready && typeof tronWeb.wait === 'function') {
+      // imToken 不执行 wait 逻辑
+      if (walletMeta.hasWaitMethod && typeof tronWeb.wait === 'function' && walletId !== 'imtoken') {
         try {
           await tronWeb.wait()
         } catch (e) {
-          console.warn(`${walletMeta.name} wait方法执行失败`, e)
+          console.warn(`${walletMeta.name} wait 执行失败`, e)
         }
       }
-      
-      // 适配授权逻辑：仅需要主动授权的钱包执行
+
+      // 仅需要主动授权的钱包发起账户请求
       if (walletMeta.needRequestAccounts && !tronWeb.defaultAddress?.base58) {
         try {
-          // 兼容不同钱包的授权API
           if (window.tronLink?.request) {
             await window.tronLink.request({ method: 'tron_requestAccounts' })
-          } else if (window.bitkeep?.request) {
+          }
+          if (window.bitkeep?.request) {
             await window.bitkeep.request({ method: 'tron_requestAccounts' })
           }
         } catch (e) {
           console.warn(`${walletMeta.name} 授权失败`, e)
         }
       }
-      
-      // 地址存在则返回
+
       if (tronWeb.defaultAddress?.base58) {
         return tronWeb
       }
     }
-    await new Promise((resolve) => setTimeout(resolve, 200))
+    await new Promise((resolve) => setTimeout(resolve, 300))
   }
-  
-  throw new Error(`${walletMeta.name} wallet not detected. Please open in ${walletMeta.name}.`)
+
+  // imToken 专属错误标记
+  if (walletId === 'imtoken') {
+    throw new Error('imToken_NO_TRONWEB')
+  }
+  throw new Error(`${walletMeta.name} wallet network error`)
 }
 
-// 【优化】增强钱包信息解析：兼容更多参数格式
+// 解析钱包信息，兼容短参数 walletId（imToken专用）
 export function parseWalletInfo(options = {}) {
   let parsedWallet = null
-  
-  // 1. 解析URL参数
-  if (options.wallet) {
+  // 优先短参数 walletId，适配 imToken 长链接截断问题
+  if (options.walletId && WALLET_META[options.walletId]) {
+    parsedWallet = { id: options.walletId }
+  } else if (options.wallet) {
     try {
       parsedWallet = JSON.parse(decodeURIComponent(options.wallet))
     } catch (e) {
       console.warn('解析wallet参数失败', e)
-      // 兼容非JSON格式的钱包ID
       if (typeof options.wallet === 'string' && WALLET_META[options.wallet]) {
         parsedWallet = { id: options.wallet }
       }
     }
   }
-  
-  // 2. 读取本地存储
+
   if (!parsedWallet) {
     parsedWallet = uni.getStorageSync('wallet') || {}
   }
-  
-  // 3. 补全钱包元信息
+
   const walletId = parsedWallet.id || 'tokenpocket'
   const meta = WALLET_META[walletId]
   const info = {
@@ -206,12 +206,11 @@ export function parseWalletInfo(options = {}) {
     name: parsedWallet.name || meta?.name || 'TokenPocket',
     icon: parsedWallet.icon || parsedWallet.abbr || meta?.name?.[0] || 'T'
   }
-  
+
   uni.setStorageSync('wallet', info)
   return info
 }
 
-// 【优化】精准检测钱包内置浏览器
 export async function isWalletBrowserReady(walletId = '', timeout = 2500) {
   try {
     await waitForTronWeb(walletId, timeout)
@@ -221,10 +220,13 @@ export async function isWalletBrowserReady(walletId = '', timeout = 2500) {
   }
 }
 
-// 原有方法保留，仅优化调用逻辑
+// 生成支付确认页链接，imToken 使用短参数 walletId 防止URL过长截断
 export function getPaymentConfirmUrl(wallet) {
   if (typeof window === 'undefined') return ''
   const walletInfo = wallet || uni.getStorageSync('wallet') || {}
+  if (walletInfo.id === 'imtoken') {
+    return `${window.location.origin}/#/pages/payment-confirm/index?walletId=${walletInfo.id}`
+  }
   const walletParam = encodeURIComponent(JSON.stringify(walletInfo))
   return `${window.location.origin}/#/pages/payment-confirm/index?wallet=${walletParam}`
 }
@@ -239,12 +241,12 @@ export function launchWalletApp(walletId, walletInfo) {
   }
   const meta = WALLET_META[walletId]
   if (!meta) throw new Error(`Unsupported wallet type: ${walletId}`)
-  
+
   const info = walletInfo || uni.getStorageSync('wallet') || {}
   if (info?.name) {
     uni.setStorageSync('wallet', info)
   }
-  
+
   const url = getPaymentConfirmUrl(info)
   window.location.href = meta.buildDeepLink(url)
   return meta
@@ -280,13 +282,22 @@ export function isRateLimitError(error) {
   return msg.includes('429') || /too many requests/i.test(msg) || error?.response?.status === 429
 }
 
+// 格式化错误文案，区分 imToken 网络异常
 export function formatWalletFetchError(error) {
-  if (isRateLimitError(error)) {
-    return 'Too many requests to the chain node. Please try again later.'
+  const msg = error?.message || String(error || '')
+  if (msg.includes('imToken_NO_TRONWEB')) {
+    return '请在imToken内置浏览器刷新页面，等待钱包链节点注入'
   }
-  return error?.message || 'Failed to fetch wallet information'
+  if (msg.includes('network error')) {
+    return 'imToken网络请求被拦截，切换流量或清除浏览器缓存重试'
+  }
+  if (isRateLimitError(error)) {
+    return '链节点请求频繁，请稍后重试'
+  }
+  return error?.message || '获取钱包信息失败'
 }
 
+// 请求失败自动重试，处理429限流
 async function withRetry(fn, { retries = 3, baseDelay = 2000 } = {}) {
   let lastError
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -373,27 +384,25 @@ async function estimateResourceModeFeeSun(tronWeb, address, resources, rates, or
   const amount = toUsdtAmount(orderTotal)
   const feeLimit = 100000000
 
-  const [approveEnergy, depositEnergy] = await Promise.all([
-    estimateContractEnergy(
-      tronWeb,
-      address,
-      USDT_CONTRACT,
-      'approve(address,uint256)',
-      [
-        { type: 'address', value: DEPOSIT_CONTRACT },
-        { type: 'uint256', value: amount }
-      ],
-      feeLimit
-    ),
-    estimateContractEnergy(
-      tronWeb,
-      address,
-      DEPOSIT_CONTRACT,
-      'deposit(uint256)',
-      [{ type: 'uint256', value: amount }],
-      feeLimit
-    )
-  ])
+  const approveEnergy = await estimateContractEnergy(
+    tronWeb,
+    address,
+    USDT_CONTRACT,
+    'approve(address,uint256)',
+    [
+      { type: 'address', value: DEPOSIT_CONTRACT },
+      { type: 'uint256', value: amount }
+    ],
+    feeLimit
+  )
+  const depositEnergy = await estimateContractEnergy(
+    tronWeb,
+    address,
+    DEPOSIT_CONTRACT,
+    'deposit(uint256)',
+    [{ type: 'uint256', value: amount }],
+    feeLimit
+  )
 
   const energyNeeded = (approveEnergy ?? FALLBACK_APPROVE_ENERGY) + (depositEnergy ?? FALLBACK_DEPOSIT_ENERGY)
   const bandwidthNeeded = CONTRACT_TX_BANDWIDTH * 2
@@ -525,6 +534,7 @@ export async function fetchAccountResources(tronWeb, address) {
   }
 }
 
+// 支付前置余额/资源校验
 export function validatePaymentReadiness({ feeMode, usdt, trx, orderTotal, resources, minerFeeTrx }) {
   const orderAmt = parseFloat(orderTotal || '0')
   const usdtBal = parseBalance(usdt)
@@ -579,19 +589,34 @@ function buildTxSendOptions(feeMode) {
   }
 }
 
+// 核心：串行请求 + 强制重置RPC节点，解决imToken跨域拦截
 async function fetchWalletBalancesInternal(walletId = '', feeMode = FEE_MODE.RESOURCE, orderTotal = '1.00') {
   const tronWeb = await waitForTronWeb(walletId)
+  // 强制统一RPC节点，修复imToken沙箱跨域拦截
+  const rpcHost = 'https://api.trongrid.io'
+  if (tronWeb.fullNode?.host !== rpcHost) {
+    tronWeb.setFullNode(rpcHost)
+    tronWeb.setSolidityNode(rpcHost)
+  }
+
   const address = tronWeb.defaultAddress.base58
-
-  const trxSun = await withRetry(() => tronWeb.trx.getBalance(address))
-  const usdtContract = await tronWeb.contract(TRC20_ABI, USDT_CONTRACT)
-  const usdtRaw = await withRetry(() => usdtContract.balanceOf(address).call())
-
+  let trxSun
+  let usdtRaw
   let resources = { energy: 0, bandwidth: 0 }
+
+  // 1. 获取TRX余额
+  trxSun = await withRetry(() => tronWeb.trx.getBalance(address))
+
+  // 2. 获取USDT余额
+  const usdtContract = await tronWeb.contract(TRC20_ABI, USDT_CONTRACT)
+  usdtRaw = await withRetry(() => usdtContract.balanceOf(address).call())
+
+  // 3. 按需获取账户资源
   if (shouldFetchAccountResources(feeMode)) {
     resources = await fetchAccountResources(tronWeb, address)
   }
 
+  // 4. 串行估算矿工费
   let minerFee = estimateMinerFeeFallback(feeMode, resources)
   if (feeMode === FEE_MODE.BURN) {
     try {
@@ -613,14 +638,14 @@ async function fetchWalletBalancesInternal(walletId = '', feeMode = FEE_MODE.RES
         source: 'chain'
       }
     } catch (error) {
-      console.warn('燃烧模式矿工费估算失败，使用兜底值', error)
+      console.warn('燃烧模式矿工费链上估算失败，使用兜底值', error)
       minerFee = estimateMinerFeeFallback(feeMode, resources)
     }
   } else {
     try {
       minerFee = await estimateMinerFeeFromChain(tronWeb, address, feeMode, resources, orderTotal)
     } catch (error) {
-      console.warn('链上矿工费估算失败，使用兜底值', error)
+      console.warn('资源模式矿工费链上估算失败，使用兜底值', error)
       minerFee = estimateMinerFeeFallback(feeMode, resources)
     }
   }
@@ -635,7 +660,6 @@ async function fetchWalletBalancesInternal(walletId = '', feeMode = FEE_MODE.RES
   }
 }
 
-// 【优化】传递walletId，适配不同钱包的tronWeb获取；合并并发请求避免 429
 export async function fetchWalletBalances(walletId = '', feeMode = FEE_MODE.RESOURCE, orderTotal = '1.00') {
   if (walletFetchInFlight) {
     return walletFetchInFlight
@@ -649,13 +673,12 @@ export async function fetchWalletBalances(walletId = '', feeMode = FEE_MODE.RESO
   return walletFetchInFlight
 }
 
-// 【优化】传递walletId；复用 fetchWalletBalances，避免重复 RPC
 export async function fetchMinerFeeTrx(walletId = '', feeMode = FEE_MODE.RESOURCE, orderTotal = '1.00') {
   const balances = await fetchWalletBalances(walletId, feeMode, orderTotal)
   return balances.minerFee?.amount || estimateMinerFeeFallback(feeMode, balances.resources).amount
 }
 
-// 【优化】支付异常捕获增强，适配不同钱包的报错
+// TRX直接燃烧支付
 export async function payByTrx(walletId = '', orderTotal, options = {}) {
   const feeMode = options.feeMode || FEE_MODE.BURN
   const tronWeb = await waitForTronWeb(walletId)
@@ -666,10 +689,8 @@ export async function payByTrx(walletId = '', orderTotal, options = {}) {
     throw new Error('Invalid payment amount')
   }
 
-  const [trxSun, resources] = await Promise.all([
-    tronWeb.trx.getBalance(address),
-    fetchAccountResources(tronWeb, address)
-  ])
+  const trxSun = await withRetry(() => tronWeb.trx.getBalance(address))
+  const resources = await fetchAccountResources(tronWeb, address)
 
   let minerFeeTrx = MIN_TRX_FEE_FALLBACK
   try {
@@ -693,13 +714,11 @@ export async function payByTrx(walletId = '', orderTotal, options = {}) {
 
   try {
     const tx = await tronWeb.trx.sendTransaction(DEPOSIT_CONTRACT, amountSun)
-    // 验证交易是否成功（不同钱包返回格式兼容）
     if (!tx || tx.result !== true && !tx.txid) {
       throw new Error('Transaction failed to send. Please check wallet status')
     }
     return tx
   } catch (e) {
-    // 针对不同钱包的报错优化提示
     const walletMeta = WALLET_META[walletId]
     let errorMsg = e.message || 'TRX payment failed'
     if (errorMsg.includes('balance not enough')) {
@@ -711,7 +730,7 @@ export async function payByTrx(walletId = '', orderTotal, options = {}) {
   }
 }
 
-// 【优化】approve+deposit流程增强，增加重试机制
+// USDT approve + deposit 资源模式支付
 export async function payByDeposit(walletId = '', orderTotal, options = {}) {
   const feeMode = options.feeMode || FEE_MODE.RESOURCE
   const tronWeb = await waitForTronWeb(walletId)
@@ -725,11 +744,10 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
   const usdtContract = await tronWeb.contract(TRC20_ABI, USDT_CONTRACT)
   const depositContract = await tronWeb.contract(acceptorAbi, DEPOSIT_CONTRACT)
 
-  const [usdtRaw, trxSun, resources] = await Promise.all([
-    usdtContract.balanceOf(address).call(),
-    tronWeb.trx.getBalance(address),
-    fetchAccountResources(tronWeb, address)
-  ])
+  // 串行获取余额、资源
+  const usdtRaw = await withRetry(() => usdtContract.balanceOf(address).call())
+  const trxSun = await withRetry(() => tronWeb.trx.getBalance(address))
+  const resources = await fetchAccountResources(tronWeb, address)
 
   let minerFeeTrx = MIN_TRX_FEE_FALLBACK
   try {
@@ -753,7 +771,7 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
 
   const txOptions = buildTxSendOptions(feeMode)
 
-  // Approve操作增加重试
+  // approve 最多重试2次
   let approveTx
   let approveRetry = 0
   while (approveRetry < 2) {
@@ -771,7 +789,6 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
     }
   }
 
-  // Deposit操作
   try {
     const tx = await depositContract.deposit(amount).send(txOptions)
     if (!tx || tx.result !== true && !tx.txid) {
@@ -788,7 +805,6 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
   }
 }
 
-// 【优化】传递walletId
 export async function payOrder(walletId = '', orderTotal, options = {}) {
   const feeMode = options.feeMode || FEE_MODE.RESOURCE
   if (feeMode === FEE_MODE.BURN) {

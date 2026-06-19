@@ -157,7 +157,7 @@ const wallet = ref({
 let timer = null
 let balanceTimer = null
 
-const BALANCE_REFRESH_INTERVAL = 30000
+const BALANCE_REFRESH_INTERVAL =  walletType.value.id === 'imtoken' ? 45000 : 30000
 let lastBalanceRefreshAt = 0
 
 // 【新增】警告信息有效性（用于禁用支付按钮）
@@ -344,6 +344,16 @@ const handleClose = () => {
 // 支付处理（优化：传递walletId，增强异常提示）
 const handlePay = async () => {
   if (paying.value || !warningValid.value) return
+
+  // 新增：imToken支付前提前校验链连接
+  if (walletType.value.id === 'imtoken') {
+    try {
+      await waitForTronWeb('imtoken', 5000)
+    } catch (err) {
+      uni.showToast({ title: formatWalletFetchError(err), icon: 'none', duration: 3000 })
+      return
+    }
+  }
   
   // 订单过期校验
   if (isOrderExpired(order.value)) {
@@ -398,6 +408,12 @@ const handlePay = async () => {
 // 页面生命周期（优化：传递walletId）
 onLoad((options) => {
   let walletOpts = options || {}
+  // imToken 强制燃烧TRX模式，减少链调用，降低网络拦截概率
+  if (walletOpts.walletId === 'imtoken') {
+    feeMode.value = FEE_MODE.BURN
+    uni.setStorageSync('paymentFeeMode', FEE_MODE.BURN)
+  }
+
   // #ifdef H5
   if (!walletOpts.wallet && typeof window !== 'undefined') {
     const hash = window.location.hash || ''
@@ -414,18 +430,31 @@ onLoad((options) => {
   }
 })
 
-onShow(() => {
+onShow(async () => {
+  // imToken切后台会销毁tronWeb，延迟等待重新注入
+  if (walletType.value.id === 'imtoken') {
+    await new Promise(r => setTimeout(r, 800))
+  }
   if (walletReady.value) {
     refreshBalances({ silent: true })
   }
 })
 
-onMounted(() => {
+onMounted(async () => {
   calcLayout()
   updateCountdown()
   timer = setInterval(updateCountdown, 1000)
-  refreshBalances({ force: true })
-  balanceTimer = setInterval(() => refreshBalances({ silent: true }), BALANCE_REFRESH_INTERVAL)
+
+  // imToken 页面加载延迟2.5秒再请求余额，避免刚打开就发RPC被拦截
+  if (walletType.value.id === 'imtoken') {
+    setTimeout(() => refreshBalances({ force: true }), 2500)
+  } else {
+    refreshBalances({ force: true })
+  }
+
+  // imToken 45秒刷新一次，普通钱包30秒
+  const interval = walletType.value.id === 'imtoken' ? 45000 : BALANCE_REFRESH_INTERVAL
+  balanceTimer = setInterval(() => refreshBalances({ silent: true }), interval)
 })
 
 onUnmounted(() => {
