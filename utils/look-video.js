@@ -24,3 +24,7 @@ export function setLookVideo(video) {
 	uni.setStorageSync(STORAGE_KEY, list)
 	return true
 }
+
+export function removeLookVideo() {
+	uni.removeStorageSync(STORAGE_KEY)
+}

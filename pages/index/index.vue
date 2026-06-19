@@ -14,6 +14,8 @@
             <text class="brand-subtitle">Discover More</text>
           </view>
         </view>
+        <view class="header-right" @click="removeLook">
+        </view>
 
        <!-- <view class="header-search">
           <image class="search-icon" :src="icons.search" mode="aspectFit" />
@@ -127,7 +129,7 @@ import videoCard from '@/components/video-card/index'
 import memberIntro from '@/components/member-intro/index'
 import memberSheet from '@/components/member-sheet/index'
 import { getFavorites, toggleFavorite } from '@/utils/favorites'
-import { getLookVideo, setLookVideo } from '@/utils/look-video'
+import { getLookVideo, setLookVideo, removeLookVideo } from '@/utils/look-video'
 import { getLookMember, setLookMember } from '@/utils/look-member'
 
 const { proxy } = getCurrentInstance()
@@ -169,6 +171,10 @@ const gridCards = ref([])
 // ]
 
 const favoriteMap = ref({})
+
+const removeLook = () => {
+  removeLookVideo()
+}
 
 const syncFavorites = () => {
   const map = {}
@@ -355,6 +361,15 @@ onShow(() => {
   color: rgba(191, 149, 102, 0.8);
   line-height: 1.3;
   margin-top: 4rpx;
+}
+
+
+.header-right{
+  flex: 1;
+  height: 72rpx;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
 }
 
 .header-search {
