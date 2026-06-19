@@ -77,7 +77,7 @@
       </view>
 
       <!-- 大图卡片 -->
-      <view class="section-wrap" v-if="gridCards.length>0">
+      <view class="section-wrap" v-if="featured">
         <video-card
           :views="featured.views"
           :video-id="'card-video-' + featured.id"
@@ -94,19 +94,19 @@
 
       <!-- 双列卡片 -->
       <view class="card-grid section-wrap" v-if="gridCards.length>0">
-		<view class="card-grid-item" v-for="item in gridCards" :key="item.id">
-			  <video-card
-				:views="item.views"
-				:video-id="'card-video-' + item.id"
-				:favorited="isFavorited(item.id)"
-				:video="getVideoUrl(item)"
-				:description="item.description"
-				:autoplay="false"
-				:muted="false"
-				@click="handleCard(item)"
-				@favorite="handleFavorite(item)"
-			  />
-		</view>
+        <view class="card-grid-item" v-for="item in gridCards" :key="item.id">
+            <video-card
+            :views="item.views"
+            :video-id="'card-video-' + item.id"
+            :favorited="isFavorited(item.id)"
+            :video="getVideoUrl(item)"
+            :description="item.description"
+            :autoplay="false"
+            :muted="false"
+            @click="handleCard(item)"
+            @favorite="handleFavorite(item)"
+            />
+        </view>
       </view>
 
       <view class="bottom-space" />

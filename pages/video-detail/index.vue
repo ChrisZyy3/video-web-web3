@@ -212,10 +212,10 @@ const handleBack = () => {
 
 const handleTogglePlay = () => {
 	const lookList = getLookVideo()
-	if(lookList.length==2&&!getLookMember()){
-		showMemberSheet.value = true
-		return
-	}
+	//if(lookList.length==2&&!getLookMember()){
+	//	showMemberSheet.value = true
+	//	return
+	//}
 	if (playing.value) {
 		getCtx().pause()
 	} else {
