@@ -11,7 +11,7 @@
 
 			<view class="title-wrap">
 				<image class="title-wing" src="/static/images/title-wing.svg" mode="aspectFit" />
-				<text class="title-text">欢迎回家</text>
+				<text class="title-text">Welcome Back</text>
 				<image class="title-wing title-wing--right" src="/static/images/title-wing.svg" mode="aspectFit" />
 			</view>
 
@@ -20,12 +20,12 @@
 					<view class="input-icon-wrap">
 						<image class="input-icon" :src="icons.user" mode="aspectFit" />
 					</view>
-					<text class="input-label">账号</text>
+					<text class="input-label">Account</text>
 					<input
 						v-model="account"
 						class="input-field"
 						type="text"
-						placeholder="请输入您的账号"
+						placeholder="Enter your account"
 						placeholder-class="input-placeholder"
 						confirm-type="next"
 					/>
@@ -35,12 +35,12 @@
 					<view class="input-icon-wrap">
 						<image class="input-icon" :src="icons.lock" mode="aspectFit" />
 					</view>
-					<text class="input-label">密码</text>
+					<text class="input-label">Password</text>
 					<input
 						v-model="password"
 						class="input-field"
 						type="password"
-						placeholder="六位数可中英文区分大小写"
+						placeholder="6+ characters, case-sensitive"
 						placeholder-class="input-placeholder"
 						confirm-type="done"
 					/>
@@ -51,10 +51,10 @@
 
 			<view class="btn-group">
 				<view class="btn-gold" @click="handleLogin">
-					<text class="btn-gold-text">登录</text>
+					<text class="btn-gold-text">Log In</text>
 				</view>
 				<view class="btn-gold" @click="handleRegister">
-					<text class="btn-gold-text">注册并登录</text>
+					<text class="btn-gold-text">Register & Log In</text>
 				</view>
 			</view>
 		</view>
@@ -85,15 +85,15 @@ const handleBack = () => {
 
 const handleLogin = () => {
 	if (!account.value.trim()) {
-		uni.showToast({ title: '请输入账号', icon: 'none' })
+		uni.showToast({ title: 'Please enter your account', icon: 'none' })
 		return
 	}
 	if (!password.value.trim()) {
-		uni.showToast({ title: '请输入密码', icon: 'none' })
+		uni.showToast({ title: 'Please enter your password', icon: 'none' })
 		return
 	}
 	uni.setStorageSync('token', account.value)
-	uni.showToast({ title: '登录成功', icon: 'success' })
+	uni.showToast({ title: 'Login successful', icon: 'success' })
 	setTimeout(() => {
 		uni.reLaunch({ url: '/pages/mine/index' })
 	}, 800)
@@ -101,11 +101,11 @@ const handleLogin = () => {
 
 const handleRegister = () => {
 	if (!account.value.trim() || !password.value.trim()) {
-		uni.showToast({ title: '请填写账号和密码', icon: 'none' })
+		uni.showToast({ title: 'Please enter account and password', icon: 'none' })
 		return
 	}
 	uni.setStorageSync('token', account.value)
-	uni.showToast({ title: '注册并登录成功', icon: 'success' })
+	uni.showToast({ title: 'Registered and logged in', icon: 'success' })
 	setTimeout(() => {
 		uni.reLaunch({ url: '/pages/mine/index' })
 	}, 800)

@@ -8,14 +8,14 @@
 			</view>
 
 			<view class="page-head">
-				<text class="page-title">选择支付钱包</text>
-				<text class="page-sub">请选择您使用的钱包进行支付</text>
+				<text class="page-title">Select Payment Wallet</text>
+				<text class="page-sub">Choose the wallet you use to pay</text>
 			</view>
 
 			<view class="amount-card">
-				<text class="amount-label">待支付金额</text>
+				<text class="amount-label">Amount Due</text>
 				<text class="amount-value">{{ order.total }} USDT</text>
-				<text v-if="orderExpired" class="amount-expired">订单已过期，请返回重新下单</text>
+				<text v-if="orderExpired" class="amount-expired">Order expired. Please go back and place a new order.</text>
 			</view>
 
 			<view class="wallet-grid">
@@ -40,7 +40,7 @@
 				:class="{ 'footer-btn--disabled': opening || orderExpired }"
 				@click="handlePay"
 			>
-				<text class="footer-btn-text">{{ opening ? '连接中...' : '打开钱包支付' }}</text>
+				<text class="footer-btn-text">{{ opening ? 'Connecting...' : 'Open Wallet to Pay' }}</text>
 			</view>
 		</view>
 	</view>
@@ -99,10 +99,10 @@ const goPaymentConfirm = (wallet) => {
 const promptDownload = (wallet) => {
 	setTimeout(() => {
 		uni.showModal({
-			title: `未打开${wallet.name}?`,
-			content: '请确认已安装该钱包，或在钱包内置浏览器中打开本页面完成支付',
-			confirmText: '去下载',
-			cancelText: '知道了',
+			title: `${wallet.name} not opened?`,
+			content: 'Please confirm the wallet is installed, or open this page in the wallet\'s built-in browser to complete payment.',
+			confirmText: 'Download',
+			cancelText: 'Got it',
 			success: (res) => {
 				// #ifdef H5
 				if (res.confirm && typeof window !== 'undefined') {
@@ -121,7 +121,7 @@ const handleBack = () => {
 const handlePay = async () => {
 	if (opening.value || orderExpired.value) {
 		if (orderExpired.value) {
-			uni.showToast({ title: '订单已过期，请重新下单', icon: 'none' })
+			uni.showToast({ title: 'Order expired. Please place a new order.', icon: 'none' })
 			uni.reLaunch({ url: '/pages/index/index' })
 		}
 		return
@@ -134,17 +134,17 @@ const handlePay = async () => {
 	uni.setStorageSync('wallet', walletInfo)
 
 	opening.value = true
-	uni.showLoading({ title: '连接钱包中...', mask: true })
+	uni.showLoading({ title: 'Connecting wallet...', mask: true })
 
 	try {
 		// #ifdef H5
 		const result = await openWallet(wallet.id, walletInfo)
 		if (result === 'connected') {
-			uni.showToast({ title: '钱包已连接', icon: 'success' })
+			uni.showToast({ title: 'Wallet connected', icon: 'success' })
 			goPaymentConfirm(wallet)
 			return
 		}
-		uni.showToast({ title: `正在打开${wallet.name}`, icon: 'none' })
+		uni.showToast({ title: `Opening ${wallet.name}`, icon: 'none' })
 		promptDownload(wallet)
 		// #endif
 
@@ -153,7 +153,7 @@ const handlePay = async () => {
 		// #endif
 	} catch (error) {
 		console.error('打开钱包失败:', error)
-		uni.showToast({ title: error?.message || '打开钱包失败', icon: 'none' })
+		uni.showToast({ title: error?.message || 'Failed to open wallet', icon: 'none' })
 	} finally {
 		uni.hideLoading()
 		opening.value = false

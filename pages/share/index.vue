@@ -1,7 +1,7 @@
 <template>
 	<view class="page">
 		<view class="page-content">
-			<text class="page-title">分享</text>
+			<text class="page-title">Share</text>
 		</view>
 		<tabbar />
 	</view>

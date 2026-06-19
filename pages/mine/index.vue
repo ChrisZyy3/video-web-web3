@@ -10,8 +10,8 @@
 					</view>
 					<view class="user-info">
 						<view class="info-row">
-							<text class="info-label">账号</text>
-							<text class="info-value info-value--empty">未登录</text>
+							<text class="info-label">Account</text>
+							<text class="info-value info-value--empty">Not logged in</text>
 						</view>
 						<view class="info-grid">
 							<view class="info-cell">
@@ -19,7 +19,7 @@
 								<text class="info-value info-value--empty">--</text>
 							</view>
 							<view class="info-cell info-cell--right" @click="handleBrowser">
-								<text class="info-label">浏览器</text>
+								<text class="info-label">Browser</text>
 								<view class="info-cell-value">
 									<text class="info-value">Chrome</text>
 									<text class="arrow-icon">›</text>
@@ -28,37 +28,37 @@
 						</view>
 						<view class="info-grid">
 							<view class="info-cell">
-								<text class="info-label">已购</text>
+								<text class="info-label">Purchased</text>
 								<text class="info-count">0</text>
 							</view>
 							<view class="info-cell info-cell--right">
-								<text class="info-label">版本号</text>
+								<text class="info-label">Version</text>
 								<text class="info-value">v1.0.68.102</text>
 							</view>
 						</view>
 					</view>
-					<view class="logout-btn" @click="handleLogout">
+					<!--<view class="logout-btn" @click="handleLogout">
 						<image class="logout-icon" :src="icons.logout" mode="aspectFit" />
-					</view>
+					</view>-->
 				</view>
 				<view class="member-tag">
 					<view class="member-dot" />
-					<text class="member-tag-text">非会员</text>
+					<text class="member-tag-text">Non-member</text>
 				</view>
 			</view>
 
 			<view class="action-btns">
 				<view class="btn-member" @click="handleMember">
-					<text class="btn-member-text">成为会员</text>
+					<text class="btn-member-text">Become a Member</text>
 				</view>
 				<!-- <view class="btn-outline" @click="handleLogin">
-					<text class="btn-outline-text">登录账号</text>
+					<text class="btn-outline-text">Log In</text>
 				</view>
 				<view class="btn-outline" @click="handleChangePwd">
-					<text class="btn-outline-text">修改密码</text>
+					<text class="btn-outline-text">Change Password</text>
 				</view> -->
 				<view class="btn-outline" @click="handleOrder">
-					<text class="btn-outline-text">订单详情</text>
+					<text class="btn-outline-text">Order Details</text>
 				</view>
 			</view>
 
@@ -66,19 +66,19 @@
 				<view class="qrcode-card" @click="handleQrPreview">
 					<image class="qrcode-img" :src="icons.qrcode" mode="aspectFit" />
 				</view>
-				<text class="qrcode-tip">点击图片可放大/缩小/截屏保存</text>
+				<text class="qrcode-tip">Tap the image to zoom in/out or save a screenshot</text>
 				<text class="domain-url">{{ domainUrl }}</text>
 				<view class="btn-copy" @click="handleCopyDomain">
-					<text class="btn-copy-text">复制域名</text>
+					<text class="btn-copy-text">Copy Domain</text>
 				</view>
 			</view>
 
 			<view class="tips-section">
-				<text class="tips-title">温馨提示</text>
+				<text class="tips-title">Tips</text>
 				<view class="tips-list">
-					<text class="tips-item">1. 订单完成后，请保存好订单号，以便查询。</text>
-					<text class="tips-item">2. 注册账号后，请牢记账号密码，以便下次登录。</text>
-					<text class="tips-item">3. 如遇问题，请联系客服处理。</text>
+					<text class="tips-item">1. After completing an order, save your order number for future reference.</text>
+					<text class="tips-item">2. After registering, remember your account and password for next login.</text>
+					<text class="tips-item">3. If you encounter any issues, please contact customer support.</text>
 				</view>
 			</view> -->
 
@@ -137,7 +137,7 @@ const calcLayout = () => {
 }
 
 const handleLogout = () => {
-	uni.showToast({ title: '退出登录', icon: 'none' })
+	uni.showToast({ title: 'Logged out', icon: 'none' })
 }
 
 const handleMember = () => {
@@ -157,7 +157,7 @@ const handleOrder = () => {
 }
 
 const handleBrowser = () => {
-	uni.showToast({ title: '切换浏览器', icon: 'none' })
+	uni.showToast({ title: 'Switch browser', icon: 'none' })
 }
 
 const handleQrPreview = () => {
@@ -171,7 +171,7 @@ const handleCopyDomain = () => {
 	uni.setClipboardData({
 		data: domainUrl,
 		success: () => {
-			uni.showToast({ title: '复制成功', icon: 'success' })
+			uni.showToast({ title: 'Copied', icon: 'success' })
 		}
 	})
 }

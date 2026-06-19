@@ -11,7 +11,7 @@
 
 			<view class="title-wrap">
 				<image class="title-wing" src="/static/images/title-wing.svg" mode="aspectFit" />
-				<text class="title-text">修改密码</text>
+				<text class="title-text">Change Password</text>
 				<image class="title-wing title-wing--right" src="/static/images/title-wing.svg" mode="aspectFit" />
 			</view>
 
@@ -28,12 +28,12 @@
 					<view class="input-icon-wrap">
 						<image class="input-icon" :src="icons.user" mode="aspectFit" />
 					</view>
-					<text class="input-label">账号</text>
+					<text class="input-label">Account</text>
 					<input
 						v-model="account"
 						class="input-field"
 						type="text"
-						placeholder="请输入新的账号"
+						placeholder="Enter new account"
 						placeholder-class="input-placeholder"
 						confirm-type="next"
 					/>
@@ -43,12 +43,12 @@
 					<view class="input-icon-wrap">
 						<image class="input-icon" :src="icons.lock" mode="aspectFit" />
 					</view>
-					<text class="input-label">密码</text>
+					<text class="input-label">Password</text>
 					<input
 						v-model="password"
 						class="input-field"
 						type="password"
-						placeholder="六位数可中英文区分大小写"
+						placeholder="6+ characters, case-sensitive"
 						placeholder-class="input-placeholder"
 						confirm-type="done"
 					/>
@@ -59,7 +59,7 @@
 
 			<view class="btn-group btn-group--single">
 				<view class="btn-gold" @click="handleSave">
-					<text class="btn-gold-text">保存</text>
+					<text class="btn-gold-text">Save</text>
 				</view>
 			</view>
 		</view>
@@ -91,15 +91,15 @@ const handleBack = () => {
 
 const handleSave = () => {
 	if (!account.value.trim()) {
-		uni.showToast({ title: '请输入新的账号', icon: 'none' })
+		uni.showToast({ title: 'Please enter a new account', icon: 'none' })
 		return
 	}
 	if (!password.value.trim()) {
-		uni.showToast({ title: '请输入密码', icon: 'none' })
+		uni.showToast({ title: 'Please enter your password', icon: 'none' })
 		return
 	}
 	uni.setStorageSync('token', account.value)
-	uni.showToast({ title: '保存成功', icon: 'success' })
+	uni.showToast({ title: 'Saved successfully', icon: 'success' })
 	setTimeout(() => {
 		uni.navigateBack({
 			fail: () => {

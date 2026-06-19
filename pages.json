@@ -3,7 +3,7 @@
 		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "首页",
+				"navigationBarTitleText": "Home",
 				"navigationStyle": "custom",
 				"backgroundColor": "#000"
 			}
@@ -11,28 +11,28 @@
 		{
 			"path": "pages/purchased/index",
 			"style": {
-				"navigationBarTitleText": "已购",
+				"navigationBarTitleText": "Purchased",
 				"navigationStyle": "custom"
 			}
 		},
 		{
 			"path": "pages/favorite/index",
 			"style": {
-				"navigationBarTitleText": "收藏",
+				"navigationBarTitleText": "Favorites",
 				"navigationStyle": "custom"
 			}
 		},
 		{
 			"path": "pages/share/index",
 			"style": {
-				"navigationBarTitleText": "分享",
+				"navigationBarTitleText": "Share",
 				"navigationStyle": "custom"
 			}
 		},
 		{
 			"path": "pages/mine/index",
 			"style": {
-				"navigationBarTitleText": "我的",
+				"navigationBarTitleText": "Profile",
 				"navigationStyle": "custom",
 				"backgroundColor": "#000000"
 			}
@@ -40,7 +40,7 @@
 		{
 			"path": "pages/login/index",
 			"style": {
-				"navigationBarTitleText": "登录",
+				"navigationBarTitleText": "Login",
 				"navigationStyle": "custom",
 				"backgroundColor": "#000000"
 			}
@@ -48,7 +48,7 @@
 		{
 			"path": "pages/change-password/index",
 			"style": {
-				"navigationBarTitleText": "修改密码",
+				"navigationBarTitleText": "Change Password",
 				"navigationStyle": "custom",
 				"backgroundColor": "#000000"
 			}
@@ -56,7 +56,7 @@
 		{
 			"path": "pages/order/index",
 			"style": {
-				"navigationBarTitleText": "订单详情",
+				"navigationBarTitleText": "Order Details",
 				"navigationStyle": "custom",
 				"backgroundColor": "#000000"
 			}
@@ -64,7 +64,7 @@
 		{
 			"path": "pages/order-confirm/index",
 			"style": {
-				"navigationBarTitleText": "订单确认",
+				"navigationBarTitleText": "Order Confirmation",
 				"navigationStyle": "custom",
 				"backgroundColor": "#000000"
 			}
@@ -72,7 +72,7 @@
 		{
 			"path": "pages/payment-wallet/index",
 			"style": {
-				"navigationBarTitleText": "选择支付钱包",
+				"navigationBarTitleText": "Select Payment Wallet",
 				"navigationStyle": "custom",
 				"backgroundColor": "#000000"
 			}
@@ -80,7 +80,7 @@
 		{
 			"path": "pages/payment-confirm/index",
 			"style": {
-				"navigationBarTitleText": "确认支付",
+				"navigationBarTitleText": "Confirm Payment",
 				"navigationStyle": "custom",
 				"backgroundColor": "#FFFFFF"
 			}
@@ -88,7 +88,7 @@
 		{
 			"path": "pages/video-detail/index",
 			"style": {
-				"navigationBarTitleText": "视频详情",
+				"navigationBarTitleText": "Video Details",
 				"navigationStyle": "custom",
 				"backgroundColor": "#121212"
 			}

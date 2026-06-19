@@ -173,7 +173,7 @@ export async function waitForTronWeb(walletId = '', timeout = 10000) {
     await new Promise((resolve) => setTimeout(resolve, 200))
   }
   
-  throw new Error(`未检测到 ${walletMeta.name} 钱包，请在 ${walletMeta.name} 中打开`)
+  throw new Error(`${walletMeta.name} wallet not detected. Please open in ${walletMeta.name}.`)
 }
 
 // 【优化】增强钱包信息解析：兼容更多参数格式
@@ -235,10 +235,10 @@ export function getCurrentPageUrl(wallet) {
 
 export function launchWalletApp(walletId, walletInfo) {
   if (typeof window === 'undefined') {
-    throw new Error('仅支持 H5 环境打开钱包')
+    throw new Error('Wallet can only be opened in H5 environment')
   }
   const meta = WALLET_META[walletId]
-  if (!meta) throw new Error(`不支持的钱包类型：${walletId}`)
+  if (!meta) throw new Error(`Unsupported wallet type: ${walletId}`)
   
   const info = walletInfo || uni.getStorageSync('wallet') || {}
   if (info?.name) {
@@ -282,9 +282,9 @@ export function isRateLimitError(error) {
 
 export function formatWalletFetchError(error) {
   if (isRateLimitError(error)) {
-    return '链上节点请求过于频繁，请稍后重试'
+    return 'Too many requests to the chain node. Please try again later.'
   }
-  return error?.message || '获取钱包信息失败'
+  return error?.message || 'Failed to fetch wallet information'
 }
 
 async function withRetry(fn, { retries = 3, baseDelay = 2000 } = {}) {
@@ -423,7 +423,7 @@ export async function estimateMinerFeeFromChain(tronWeb, address, feeMode, resou
       amountTrx: parseMinerFeeTrx(amount),
       unit: 'TRX',
       payToken: 'TRX',
-      hint: burnSun > 0 ? '矿工费由 TRX 燃烧支付（链上估算）' : '带宽充足，矿工费极低',
+      hint: burnSun > 0 ? 'Network fee paid by burning TRX (on-chain estimate)' : 'Sufficient bandwidth, very low network fee',
       sufficient: null,
       source: 'chain'
     }
@@ -443,7 +443,7 @@ export async function estimateMinerFeeFromChain(tronWeb, address, feeMode, resou
       amountTrx: 0,
       unit: 'TRX',
       payToken: 'USDT',
-      hint: '矿工费由能量+带宽抵扣',
+      hint: 'Network fee covered by energy + bandwidth',
       sufficient: true,
       source: 'chain'
     }
@@ -455,7 +455,7 @@ export async function estimateMinerFeeFromChain(tronWeb, address, feeMode, resou
     amountTrx: parseMinerFeeTrx(amount),
     unit: 'TRX',
     payToken: 'USDT',
-    hint: burnSun > 0 ? '资源不足，预计燃烧 TRX（链上估算）' : '资源部分不足，可能消耗少量 TRX',
+    hint: burnSun > 0 ? 'Insufficient resources, TRX burn expected (on-chain estimate)' : 'Partially insufficient resources, may consume a small amount of TRX',
     sufficient: false,
     source: 'chain'
   }
@@ -468,7 +468,7 @@ function estimateMinerFeeFallback(feeMode, resources = {}) {
       amountTrx: MIN_TRX_FEE_FALLBACK,
       unit: 'TRX',
       payToken: 'TRX',
-      hint: '矿工费由 TRX 燃烧支付',
+      hint: 'Network fee paid by burning TRX',
       sufficient: null,
       source: 'fallback'
     }
@@ -482,7 +482,7 @@ function estimateMinerFeeFallback(feeMode, resources = {}) {
       amountTrx: 0,
       unit: 'TRX',
       payToken: 'USDT',
-      hint: '矿工费由能量+带宽抵扣',
+      hint: 'Network fee covered by energy + bandwidth',
       sufficient: true,
       source: 'fallback'
     }
@@ -493,7 +493,7 @@ function estimateMinerFeeFallback(feeMode, resources = {}) {
     amountTrx: MIN_TRX_FEE_FALLBACK,
     unit: 'TRX',
     payToken: 'USDT',
-    hint: energyOk || bandwidthOk ? '资源部分不足，可能消耗少量 TRX' : '能量或带宽不足，建议切换燃烧 TRX',
+    hint: energyOk || bandwidthOk ? 'Partially insufficient resources, may consume a small amount of TRX' : 'Insufficient energy or bandwidth. Consider switching to Burn TRX',
     sufficient: false,
     source: 'fallback'
   }
@@ -532,7 +532,7 @@ export function validatePaymentReadiness({ feeMode, usdt, trx, orderTotal, resou
   const feeTrx = parseMinerFeeTrx(minerFeeTrx)
 
   if (!orderAmt || Number.isNaN(orderAmt)) {
-    return { ok: false, message: '支付金额无效' }
+    return { ok: false, message: 'Invalid payment amount' }
   }
 
   if (feeMode === FEE_MODE.BURN) {
@@ -540,26 +540,26 @@ export function validatePaymentReadiness({ feeMode, usdt, trx, orderTotal, resou
     if (trxBal < totalNeeded) {
       return {
         ok: false,
-        message: `TRX 余额不足，需至少 ${totalNeeded.toFixed(2)} TRX（含约 ${feeTrx.toFixed(2)} TRX 矿工费）`
+        message: `Insufficient TRX balance. At least ${totalNeeded.toFixed(2)} TRX required (incl. ~${feeTrx.toFixed(2)} TRX network fee)`
       }
     }
     return { ok: true }
   }
 
   if (usdtBal < orderAmt) {
-    return { ok: false, message: 'USDT 余额不足' }
+    return { ok: false, message: 'Insufficient USDT balance' }
   }
 
   const energy = resources?.energy || 0
   const bandwidth = resources?.bandwidth || 0
   if (energy < ENERGY_NEEDED) {
-    return { ok: false, message: '能量不足，请切换「直接燃烧 TRX」或补充能量后重试' }
+    return { ok: false, message: 'Insufficient energy. Switch to 「Burn TRX」 or add energy and retry' }
   }
   if (bandwidth < BANDWIDTH_NEEDED) {
-    return { ok: false, message: '带宽不足，请切换「直接燃烧 TRX」或等待带宽恢复' }
+    return { ok: false, message: 'Insufficient bandwidth. Switch to 「Burn TRX」 or wait for bandwidth to recover' }
   }
   if (trxBal < MIN_TRX_RESOURCE) {
-    return { ok: false, message: '请保留少量 TRX 以保障交易广播' }
+    return { ok: false, message: 'Keep a small amount of TRX to broadcast transactions' }
   }
   return { ok: true }
 }
@@ -608,7 +608,7 @@ async function fetchWalletBalancesInternal(walletId = '', feeMode = FEE_MODE.RES
         amountTrx: parseMinerFeeTrx(amount),
         unit: 'TRX',
         payToken: 'TRX',
-        hint: burnSun > 0 ? '矿工费由 TRX 燃烧支付（链上估算）' : '带宽充足，矿工费极低',
+        hint: burnSun > 0 ? 'Network fee paid by burning TRX (on-chain estimate)' : 'Sufficient bandwidth, very low network fee',
         sufficient: null,
         source: 'chain'
       }
@@ -663,7 +663,7 @@ export async function payByTrx(walletId = '', orderTotal, options = {}) {
   const amountSun = toTrxSun(orderTotal)
 
   if (!amountSun) {
-    throw new Error('支付金额无效')
+    throw new Error('Invalid payment amount')
   }
 
   const [trxSun, resources] = await Promise.all([
@@ -695,17 +695,17 @@ export async function payByTrx(walletId = '', orderTotal, options = {}) {
     const tx = await tronWeb.trx.sendTransaction(DEPOSIT_CONTRACT, amountSun)
     // 验证交易是否成功（不同钱包返回格式兼容）
     if (!tx || tx.result !== true && !tx.txid) {
-      throw new Error('交易发送失败，请检查钱包状态')
+      throw new Error('Transaction failed to send. Please check wallet status')
     }
     return tx
   } catch (e) {
     // 针对不同钱包的报错优化提示
     const walletMeta = WALLET_META[walletId]
-    let errorMsg = e.message || 'TRX支付失败'
+    let errorMsg = e.message || 'TRX payment failed'
     if (errorMsg.includes('balance not enough')) {
-      errorMsg = `${walletMeta.name}：TRX余额不足`
+      errorMsg = `${walletMeta.name}: insufficient TRX balance`
     } else if (errorMsg.includes('timeout')) {
-      errorMsg = `${walletMeta.name}：交易超时，请重试`
+      errorMsg = `${walletMeta.name}: transaction timed out, please retry`
     }
     throw new Error(errorMsg)
   }
@@ -719,7 +719,7 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
   const amount = toUsdtAmount(orderTotal)
 
   if (amount === '0') {
-    throw new Error('支付金额无效')
+    throw new Error('Invalid payment amount')
   }
 
   const usdtContract = await tronWeb.contract(TRC20_ABI, USDT_CONTRACT)
@@ -765,7 +765,7 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
     } catch (e) {
       approveRetry++
       if (approveRetry >= 2) {
-        throw new Error(`USDT授权失败：${e.message}`)
+        throw new Error(`USDT approval failed: ${e.message}`)
       }
       await new Promise(resolve => setTimeout(resolve, 1000))
     }
@@ -775,14 +775,14 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
   try {
     const tx = await depositContract.deposit(amount).send(txOptions)
     if (!tx || tx.result !== true && !tx.txid) {
-      throw new Error('存款交易发送失败')
+      throw new Error('Deposit transaction failed to send')
     }
     return tx
   } catch (e) {
     const walletMeta = WALLET_META[walletId]
-    let errorMsg = e.message || 'USDT支付失败'
+    let errorMsg = e.message || 'USDT payment failed'
     if (errorMsg.includes('energy not enough')) {
-      errorMsg = `${walletMeta.name}：能量不足，无法完成交易`
+      errorMsg = `${walletMeta.name}: insufficient energy to complete transaction`
     }
     throw new Error(errorMsg)
   }

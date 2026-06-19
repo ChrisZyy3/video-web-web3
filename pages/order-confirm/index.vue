@@ -20,8 +20,8 @@
 			</view>
 
 			<view class="page-head">
-				<text class="page-title">订单详情</text>
-				<text class="page-sub">请确认您的订单信息</text>
+				<text class="page-title">Order Details</text>
+				<text class="page-sub">Please confirm your order information</text>
 			</view>
 
 			<scroll-view class="scroll-body" scroll-y :style="{ height: scrollHeight + 'px' }">
@@ -29,7 +29,7 @@
 					<text class="amount-value">
 					{{ order.total }} USDT
 					</text>
-					<text class="amount-network">网络 · {{ order.network }}</text>
+					<text class="amount-network">Network · {{ order.network }}</text>
 
 					<!-- <view class="info-banner">
 						<image class="info-banner-icon" :src="icons.info" mode="aspectFit" />
@@ -39,16 +39,16 @@
 					<view class="timer-box">
 						<image class="timer-icon" :src="icons.clock" mode="aspectFit" />
 						<view class="timer-content">
-							<text class="timer-label">订单过期</text>
+							<text class="timer-label">Order Expires</text>
 							<text class="timer-value">{{ countdown }}</text>
 						</view>
 					</view>
 
 					<view class="detail-card">
-						<text class="detail-title">订单信息</text>
+						<text class="detail-title">Order Information</text>
 						<view class="detail-grid">
 							<view class="detail-cell">
-								<text class="detail-label">付款金额</text>
+								<text class="detail-label">Payment Amount</text>
 								<text class="detail-value">${{ payAmount }}</text>
 							</view>
 							<view class="detail-cell">
@@ -56,16 +56,16 @@
 								<text class="detail-value">{{ order.contact }}</text> -->
 							</view>
 							<view class="detail-cell">
-								<text class="detail-label">商品单价</text>
+								<text class="detail-label">Unit Price</text>
 								<text class="detail-value">{{ order.unitPrice }} USDT</text>
 							</view>
 							<view class="detail-cell">
-								<text class="detail-label">购买数量</text>
+								<text class="detail-label">Quantity</text>
 								<text class="detail-value">{{ order.quantity }}</text>
 							</view>
 						</view>
 						<view class="detail-row-full">
-							<text class="detail-label">订单号</text>
+							<text class="detail-label">Order No.</text>
 							<text class="detail-value detail-value--sm">{{ order.orderNo }}</text>
 						</view>
 					</view>
@@ -101,7 +101,7 @@
 
 			<view class="footer" :style="{ paddingBottom: safeBottom + 'px' }">
 				<view class="footer-btn" @click="handleNext">
-					<text class="footer-btn-text">下一步：订单确认</text>
+					<text class="footer-btn-text">Next: Confirm Order</text>
 				</view>
 			</view>
 		</view>
@@ -171,7 +171,7 @@ const updateCountdown = () => {
 	countdown.value = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
 	if (left <= 0 && timer) {
 		clearInterval(timer)
-		uni.showToast({ title: '订单已过期', icon: 'none' })
+		uni.showToast({ title: 'Order expired', icon: 'none' })
 		uni.relaunch({url: '/pages/index/index'})
 	}
 }
@@ -181,11 +181,11 @@ const handleBack = () => {
 }
 
 const handleService = () => {
-	uni.showToast({ title: '联系客服', icon: 'none' })
+	uni.showToast({ title: 'Contact support', icon: 'none' })
 }
 
 const handleEnergy = () => {
-	uni.showToast({ title: 'TRX能量内购', icon: 'none' })
+	uni.showToast({ title: 'TRX energy purchase', icon: 'none' })
 }
 
 const handleNext = () => {

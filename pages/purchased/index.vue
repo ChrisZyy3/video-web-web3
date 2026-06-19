@@ -1,7 +1,7 @@
 <template>
 	<view class="page">
 		<view class="page-content">
-			<text class="page-title">已购</text>
+			<text class="page-title">Purchased</text>
 		</view>
 		<tabbar />
 	</view>

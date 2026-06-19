@@ -8,7 +8,7 @@
 				<view class="back-btn" @click="handleBack">
 					<text class="back-icon"></text>
 				</view>
-			<text class="nav-title">收藏</text>
+			<text class="nav-title">Favorites</text>
 			<view class="nav-placeholder" />
 	  </view>
 
@@ -27,7 +27,7 @@
         </view>
       </view>
       <view v-else class="empty-wrap">
-        <text class="empty-text">暂无收藏内容</text>
+        <text class="empty-text">No favorites yet</text>
       </view>
 
       <view class="bottom-space" />
@@ -67,7 +67,7 @@ const handleBack = () => {
 const handleFavorite = (item) => {
   toggleFavorite(item)
   loadFavorites()
-  uni.showToast({ title: '已取消收藏', icon: 'none' })
+  uni.showToast({ title: 'Removed from favorites', icon: 'none' })
 }
 
 const pauseListVideos = () => {
@@ -82,7 +82,7 @@ const handleCard = (item) => {
   pauseListVideos()
   uni.setStorageSync('videoDetailCache', {
     id: item.id,
-    title: item.description || item.title || '内容',
+    title: item.description || item.title || 'Content',
     description: item.description || '',
     views: item.views || 0,
     play_url: item.play_url || '',

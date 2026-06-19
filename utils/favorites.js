@@ -21,7 +21,7 @@ export function toggleFavorite(video) {
 		views: video.views,
 		video: video.video,
 		cover: video.cover,
-		title: video.title || video.description || '内容',
+		title: video.title || video.description || 'Content',
 		description: video.description || '',
 		play_url: video.play_url || ''
 	})

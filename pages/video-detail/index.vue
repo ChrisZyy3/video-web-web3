@@ -5,7 +5,7 @@
 				<view class="back-btn" @click="handleBack">
 					<text class="back-icon">‹</text>
 				</view>
-				<text class="nav-title">视频详情</text>
+				<text class="nav-title">Video Details</text>
 				<!-- <view class="fav-btn" @click="handleFavorite">
 					<image class="fav-icon" :src="heartIcon" mode="aspectFit" />
 				</view> -->
@@ -56,7 +56,7 @@
 					<text class="info-title">{{ detail.title }}</text>
 					<!-- <view class="info-meta">
 						<image class="meta-icon" :src="icons.playSmall" mode="aspectFit" />
-						<text class="meta-text">{{ detail.views }} 次播放</text>
+						<text class="meta-text">{{ detail.views }} views</text>
 					</view> -->
 					<text v-if="detail.description" class="info-desc">{{ detail.description }}</text>
 				</view>
@@ -64,17 +64,17 @@
 				<view class="action-row">
 					<view class="action-btn action-btn--primary" @click="handleTogglePlay">
 						<image class="action-icon" :src="playing ? icons.pause : icons.play" mode="aspectFit" />
-						<text class="action-text">{{ playing ? '暂停' : '播放' }}</text>
+						<text class="action-text">{{ playing ? 'Pause' : 'Play' }}</text>
 					</view>
 					<view class="action-btn action-btn--outline" @click="handleDownload">
 						<image class="action-icon" :src="icons.download" mode="aspectFit" />
-						<text class="action-text action-text--gold">下载</text>
+						<text class="action-text action-text--gold">Download</text>
 					</view>
 				</view>
 
 				<view class="tip-card">
 					<image class="tip-icon" :src="icons.info" mode="aspectFit" />
-					<text class="tip-text">下载视频请确保网络畅通；部分浏览器需长按视频保存。</text>
+					<text class="tip-text">Ensure a stable network when downloading. Some browsers require long-pressing the video to save it.</text>
 				</view>
 
 				<view class="bottom-space" />
@@ -235,14 +235,14 @@ const handleFavorite = () => {
 		play_url: detail.value.play_url
 	})
 	favorited.value = added
-	uni.showToast({ title: added ? '已收藏' : '已取消收藏', icon: 'none' })
+	uni.showToast({ title: added ? 'Added to favorites' : 'Removed from favorites', icon: 'none' })
 }
 
 const saveOnApp = (filePath) => {
 	uni.saveVideoToPhotosAlbum({
 		filePath,
-		success: () => uni.showToast({ title: '已保存到相册', icon: 'success' }),
-		fail: () => uni.showToast({ title: '保存失败，请检查相册权限', icon: 'none' })
+		success: () => uni.showToast({ title: 'Saved to album', icon: 'success' }),
+		fail: () => uni.showToast({ title: 'Save failed. Please check album permissions', icon: 'none' })
 	})
 }
 
@@ -254,13 +254,13 @@ const saveOnH5 = (url) => {
 	document.body.appendChild(link)
 	link.click()
 	document.body.removeChild(link)
-	uni.showToast({ title: '开始下载', icon: 'none' })
+	uni.showToast({ title: 'Download started', icon: 'none' })
 }
 
 const handleDownload = () => {
 	if (!detail.value.video || downloading.value) return
 	downloading.value = true
-	uni.showLoading({ title: '下载中...', mask: true })
+	uni.showLoading({ title: 'Downloading...', mask: true })
 
 	// #ifdef H5
 	uni.hideLoading()
@@ -273,7 +273,7 @@ const handleDownload = () => {
 		url: detail.value.video,
 		success: (res) => {
 			if (res.statusCode !== 200) {
-				uni.showToast({ title: '下载失败', icon: 'none' })
+				uni.showToast({ title: 'Download failed', icon: 'none' })
 				return
 			}
 			// #ifdef APP-PLUS
@@ -283,12 +283,12 @@ const handleDownload = () => {
 			uni.openDocument({
 				filePath: res.tempFilePath,
 				showMenu: true,
-				fail: () => uni.showToast({ title: '打开文件失败', icon: 'none' })
+				fail: () => uni.showToast({ title: 'Failed to open file', icon: 'none' })
 			})
 			// #endif
 		},
 		fail: () => {
-			uni.showToast({ title: '下载失败', icon: 'none' })
+			uni.showToast({ title: 'Download failed', icon: 'none' })
 		},
 		complete: () => {
 			uni.hideLoading()

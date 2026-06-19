@@ -9,11 +9,11 @@
 				<view class="back-btn" @click="handleBack">
 					<text class="back-icon">‹</text>
 				</view>
-				<text class="nav-title">订单详情</text>
+				<text class="nav-title">Order Details</text>
 				<view class="nav-placeholder" />
 			</view>
 
-			<view class="tabs">
+			<!--<view class="tabs">
 				<view
 					v-for="tab in tabs"
 					:key="tab.key"
@@ -25,11 +25,11 @@
 					</text>
 					<view v-if="activeTab === tab.key" class="tab-line" />
 				</view>
-			</view>
+			</view>-->
 
 			<scroll-view class="scroll-body" scroll-y :style="{ height: scrollHeight + 'px' }">
 				<view v-if="filteredOrders.length === 0" class="empty-tip">
-					<text class="empty-tip-text">暂无相关订单</text>
+					<text class="empty-tip-text">No orders yet</text>
 				</view>
 
 				<view
@@ -38,30 +38,30 @@
 					class="order-card"
 				>
 					<view class="order-head">
-						<text class="order-no">订单号：{{ order.id }}</text>
+						<text class="order-no">Order No.: {{ order.orderNo }}</text>
 						<text
 							class="order-status"
 							:class="order.status === 'paid' ? 'order-status--paid' : 'order-status--unpaid'"
 						>
-							{{ order.status === 'paid' ? '已付款' : '未付款' }}
+							<!--{{ order.status === 'paid' ? '已付款' : '未付款' }}-->
 						</text>
 					</view>
 
 					<view class="order-body">
-						<image class="order-cover" :src="order.cover" mode="aspectFill" />
+						<!--<image class="order-cover" :src="order.cover" mode="aspectFill" />-->
 						<view class="order-info">
 							<text class="order-title">{{ order.title }}</text>
-							<text class="order-date">{{ order.date }}</text>
+							<!--<text class="order-date">{{ order.contact }}</text>-->
 							<view class="order-price-row">
-								<text class="order-price-label">实付</text>
-								<text class="order-price">¥{{ order.price }}</text>
+								<text class="order-price-label">Paid</text>
+								<text class="order-price">{{ order.total }} {{order.currency}}</text>
 							</view>
 						</view>
 					</view>
 				</view>
 
 				<view class="list-end">
-					<text class="list-end-text">哎呀，这里是底部了啦</text>
+					<text class="list-end-text">You've reached the end</text>
 				</view>
 			</scroll-view>
 		</view>
@@ -76,9 +76,9 @@ const scrollHeight = ref(0)
 const activeTab = ref('all')
 
 const tabs = [
-	{ key: 'all', label: '全部' },
-	{ key: 'paid', label: '已付款' },
-	{ key: 'unpaid', label: '未付款' }
+	{ key: 'all', label: 'All' },
+	{ key: 'paid', label: 'Paid' },
+	{ key: 'unpaid', label: 'Unpaid' }
 ]
 
 const orders = ref([

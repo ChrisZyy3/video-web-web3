@@ -4,7 +4,7 @@
       <scroll-view class="scroll-body" scroll-y :style="{ height: scrollHeight + 'px' }">
         <view class="content">
           <view class="page-header">
-            <text class="page-title">确认支付</text>
+            <text class="page-title">Confirm Payment</text>
             <view class="countdown-row">
               <image class="countdown-icon" :src="icons.clock" mode="aspectFit" />
               <text class="countdown-value">{{ countdown }}</text>
@@ -18,7 +18,7 @@
                 <view class="wallet-icon-wrap">
                 	<image class="wallet-icon" :src="icons.wallet" mode="aspectFit" />
                 </view>
-                <text class="wallet-head-title">钱包连接</text>
+                <text class="wallet-head-title">Wallet Connection</text>
                 <view class="wallet-tag">
                   <text class="wallet-tag-text">{{ walletType.name }}</text>
                 </view>
@@ -29,15 +29,15 @@
             </view>
             <view class="wallet-balances">
               <view class="balance-item">
-                <text class="balance-label">USDT余额</text>
+                <text class="balance-label">USDT Balance</text>
                 <text class="balance-value balance-value--green">{{ wallet.usdt }} USDT</text>
               </view>
               <view class="balance-item">
-                <text class="balance-label">TRX余额</text>
+                <text class="balance-label">TRX Balance</text>
                 <text class="balance-value balance-value--blue">{{ wallet.trx }} TRX</text>
               </view>
               <view class="balance-item balance-item--addr">
-                <text class="balance-label">地址</text>
+                <text class="balance-label">Address</text>
                 <text class="balance-addr">{{ wallet.addressShort }}</text>
               </view>
             </view>
@@ -45,9 +45,9 @@
 
           <view class="card contract-card">
             <view class="contract-head">
-              <text class="contract-desc">后台合约地址，请勿直接向后台地址转账，请点击下方支付开始付款。(TRC20)</text>
+              <text class="contract-desc">Contract address for payment. Do not transfer directly to this address — tap Pay below to start. (TRC20)</text>
               <view class="verified-tag">
-                <text class="verified-text">已验证</text>
+                <text class="verified-text">Verified</text>
               </view>
             </view>
             <text class="contract-addr">{{ contractAddress }}</text>
@@ -59,11 +59,11 @@
                 <view class="fee-icon-wrap">
                   <image class="fee-icon" :src="icons.gas" mode="aspectFit" />
                 </view>
-                <text class="fee-title">预估矿工费</text>
+                <text class="fee-title">Estimated Network Fee</text>
               </view>
               <view class="fee-head-right">
                 <text class="fee-amount">~{{ minerFeeTrx }} TRX</text>
-                <text class="fee-update">实时更新中</text>
+                <text class="fee-update">Updating live</text>
               </view>
             </view>
             <view class="fee-options">
@@ -72,16 +72,16 @@
                 :class="{ 'fee-option--active': feeMode === 'resource' }"
                 @click="selectFeeMode('resource')"
               >
-                <text class="fee-option-label">消耗资源</text>
-                <text class="fee-option-value">能量 + 带宽</text>
+                <text class="fee-option-label">Use Resources</text>
+                <text class="fee-option-value">Energy + Bandwidth</text>
               </view>
               <view
                 class="fee-option"
                 :class="{ 'fee-option--active': feeMode === 'burn' }"
                 @click="selectFeeMode('burn')"
               >
-                <text class="fee-option-label">直接燃烧</text>
-                <text class="fee-option-value">燃烧 TRX 代币</text>
+                <text class="fee-option-label">Burn TRX</text>
+                <text class="fee-option-value">Burn TRX tokens</text>
               </view>
             </view>
           </view>
@@ -175,22 +175,22 @@ const warningValid = computed(() => {
 
 // 优化钱包状态文案
 const walletStatusText = computed(() => {
-  if (loadingBalance.value) return `正在连接`
-  if (walletReady.value) return `已连接`
-  return `未连接`
+  if (loadingBalance.value) return `Connecting`
+  if (walletReady.value) return `Connected`
+  return `Not connected`
 })
 
 // 优化支付按钮文案
 const payBtnText = computed(() => {
-  if (paying.value) return '支付中...'
-  if (!walletReady.value) return `连接${walletType.value.name}`
+  if (paying.value) return 'Paying...'
+  if (!walletReady.value) return `Connect ${walletType.value.name}`
   const orderAmt = order.value.total
   if (feeMode.value === FEE_MODE.BURN) {
     const fee = parseMinerFeeTrx(minerFeeTrx.value)
     const totalNeeded = (parseFloat(orderAmt) + fee).toFixed(2)
-    return `立即支付  →`
+    return `Pay Now  →`
   }
-  return `立即支付  →`
+  return `Pay Now  →`
 })
 
 // 优化警告文本
@@ -211,13 +211,13 @@ const warningText = computed(() => {
   
   if (feeMode.value === FEE_MODE.BURN) {
     const totalNeeded = (parseFloat(order.value.total || '0') + fee).toFixed(2)
-    return `当前为「直接燃烧 TRX」：订单使用 TRX 支付，请确保 TRX 余额 ≥ ${totalNeeded} TRX（含约 ${fee.toFixed(2)} TRX 矿工费），否则交易将失败且无法退回。`
+    return `「Burn TRX」 mode: order is paid in TRX. Ensure TRX balance ≥ ${totalNeeded} TRX (incl. ~${fee.toFixed(2)} TRX network fee), or the transaction will fail and cannot be reversed.`
   }
   
   const { energy, bandwidth } = walletResources.value
-  const energyText = energy >= 120000 ? '充足' : `不足（当前${energy}/需120000）`
-  const bandwidthText = bandwidth >= 600 ? '充足' : `不足（当前${bandwidth}/需600）`
-  return `当前为「消耗资源」：订单使用 USDT 支付，矿工费优先抵扣能量与带宽。能量${energyText}，带宽${bandwidthText}。资源不足时请切换「直接燃烧 TRX」。`
+  const energyText = energy >= 120000 ? 'sufficient' : `insufficient (current ${energy}/need 120000)`
+  const bandwidthText = bandwidth >= 600 ? 'sufficient' : `insufficient (current ${bandwidth}/need 600)`
+  return `「Use Resources」 mode: order is paid in USDT; network fees are covered by energy and bandwidth first. Energy ${energyText}, bandwidth ${bandwidthText}. Switch to 「Burn TRX」 if resources are insufficient.`
 })
 
 // SVG图标生成（原有逻辑保留）
@@ -324,7 +324,7 @@ const updateCountdown = () => {
   countdown.value = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
   if (left <= 0 && timer) {
     clearInterval(timer)
-    uni.showToast({ title: '订单已过期，请重新下单', icon: 'none' })
+    uni.showToast({ title: 'Order expired. Please place a new order.', icon: 'none' })
     setTimeout(() => {
       uni.reLaunch({ url: '/pages/index/index' })
     }, 1500)
@@ -347,7 +347,7 @@ const handlePay = async () => {
   
   // 订单过期校验
   if (isOrderExpired(order.value)) {
-    uni.showToast({ title: '订单已过期，请重新下单', icon: 'none' })
+    uni.showToast({ title: 'Order expired. Please place a new order.', icon: 'none' })
     setTimeout(() => {
       uni.reLaunch({ url: '/pages/index/index' })
     }, 1500)
@@ -358,7 +358,7 @@ const handlePay = async () => {
   if (!walletReady.value) {
     await refreshBalances({ force: true })
     if (!walletReady.value) {
-      uni.showToast({ title: `请在${walletType.value.name}内置浏览器中打开`, icon: 'none' })
+      uni.showToast({ title: `Please open in ${walletType.value.name} built-in browser`, icon: 'none' })
       return
     }
   }
@@ -379,16 +379,16 @@ const handlePay = async () => {
 
   // 发起支付
   paying.value = true
-  uni.showLoading({ title: `正在${feeMode.value === FEE_MODE.BURN ? 'TRX' : 'USDT'}支付...`, mask: true })
+  uni.showLoading({ title: `Paying with ${feeMode.value === FEE_MODE.BURN ? 'TRX' : 'USDT'}...`, mask: true })
   try {
     await payOrder(walletType.value.id, order.value.total, { feeMode: feeMode.value })
-    uni.showToast({ title: '支付成功', icon: 'success' })
+    uni.showToast({ title: 'Payment successful', icon: 'success' })
     setTimeout(() => {
       uni.reLaunch({ url: '/pages/index/index' })
     }, 1200)
   } catch (error) {
     console.error('支付失败:', error)
-    uni.showToast({ title: error?.message || '支付失败', icon: 'none', duration: 3000 })
+    uni.showToast({ title: error?.message || 'Payment failed', icon: 'none', duration: 3000 })
   } finally {
     uni.hideLoading()
     paying.value = false
@@ -410,7 +410,7 @@ onLoad((options) => {
   loadFeeMode()
 
   if (isOrderExpired(order.value)) {
-    uni.showToast({ title: '订单已过期，请重新下单', icon: 'none' })
+    uni.showToast({ title: 'Order expired. Please place a new order.', icon: 'none' })
   }
 })
 

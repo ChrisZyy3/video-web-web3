@@ -7,26 +7,26 @@
 
 			<text class="sheet-title">{{ product.title }}</text>
 			<view class="field">
-				<text class="field-label">成为VIP看全部内容</text>
+				<text class="field-label">Become VIP to watch all content</text>
 			</view>
 			<text class="sheet-price">{{ product.price }} USDT</text>
 			
 			<!-- <view class="field">
-				<text class="field-label">联系方式<text class="field-required">*</text></text>
+				<text class="field-label">Contact<text class="field-required">*</text></text>
 				<view class="field-input">
 					<image class="field-icon" :src="icons.mail" mode="aspectFit" />
 					<input
 						v-model="contact"
 						class="field-control"
 						type="text"
-						placeholder="请输入邮箱或Telegram账号"
+						placeholder="Enter email or Telegram account"
 						placeholder-class="field-placeholder"
 					/>
 				</view>
 			</view>
 
 			<view class="field">
-				<text class="field-label">购买数量</text>
+				<text class="field-label">Quantity</text>
 				<view class="stepper">
 					<view class="stepper-btn" @click="changeQty(-1)">
 						<text class="stepper-btn-text">−</text>
@@ -41,7 +41,7 @@
 			<view class="field">
 				<view class="field-label-row">
 					<image class="field-label-icon" :src="icons.globe" mode="aspectFit" />
-					<text class="field-label">选择国家</text>
+					<text class="field-label">Select Country</text>
 				</view>
 				<picker :range="countries" :value="countryIndex" @change="onCountryChange">
 					<view class="field-picker">
@@ -54,7 +54,7 @@
 			<view class="field">
 				<view class="field-label-row">
 					<image class="field-label-icon" :src="icons.user" mode="aspectFit" />
-					<text class="field-label">指定性别</text>
+					<text class="field-label">Gender</text>
 				</view>
 				<view class="gender-row">
 					<view
@@ -63,7 +63,7 @@
 						@click="gender = 'male'"
 					>
 						<image class="gender-icon" :src="icons.male" mode="aspectFit" />
-						<text class="gender-text">男</text>
+						<text class="gender-text">Male</text>
 					</view>
 					<view
 						class="gender-btn"
@@ -71,13 +71,13 @@
 						@click="gender = 'female'"
 					>
 						<image class="gender-icon" :src="icons.female" mode="aspectFit" />
-						<text class="gender-text">女</text>
+						<text class="gender-text">Female</text>
 					</view>
 				</view>
 			</view> -->
 
 			<view class="sheet-submit" @click="handleSubmit">
-				<text class="sheet-submit-text">立即下单</text>
+				<text class="sheet-submit-text">Place Order</text>
 			</view>
 		</view>
 	</view>
@@ -99,11 +99,11 @@ const countryIndex = ref(0)
 const gender = ref('male')
 
 const product = {
-	title: '成为VIP',
+	title: 'Become VIP',
 	price: '1.00'
 }
 
-const countries = ['随机国家', '中国', '美国', '日本', '韩国', '新加坡']
+const countries = ['Random', 'China', 'United States', 'Japan', 'South Korea', 'Singapore']
 
 const icons = {
 	mail: svgIcon('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>', '#8B867C'),
@@ -149,7 +149,7 @@ const handleSubmit = () => {
 		contact: contact.value.trim() || '--',
 		quantity: quantity.value,
 		country: countries[countryIndex.value],
-		gender: gender.value === 'male' ? '男' : '女',
+		gender: gender.value === 'male' ? 'Male' : 'Female',
 		network: 'TRC20',
 		currency: 'USDT',
 		expireAt: Date.now() + 30 * 60 * 1000

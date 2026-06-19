@@ -9,19 +9,19 @@
 				<text class="intro-badge-text">VIP</text>
 			</view> -->
 
-			<text class="intro-title">充值会员</text>
-			<text class="intro-slogan">充值免费看所有影片</text>
+			<text class="intro-title">Membership</text>
+			<text class="intro-slogan">Recharge to watch all videos for free</text>
 
 			<view class="intro-list">
-				<text class="intro-item">· 开通会员，全站影片免费观看</text>
-				<text class="intro-item">· 新人可先免费体验两部内容</text>
+				<text class="intro-item">· Unlock unlimited access to all videos</text>
+				<text class="intro-item">· New users can try 2 videos for free first</text>
 			</view>
 
 			<view class="intro-submit" @click="handleConfirm">
-				<text class="intro-submit-text">立即充值</text>
+				<text class="intro-submit-text">Recharge Now</text>
 			</view>
 			<view class="intro-later" @click="handleClose">
-				<text class="intro-later-text">稍后再说</text>
+				<text class="intro-later-text">Maybe Later</text>
 			</view>
 		</view>
 	</view>

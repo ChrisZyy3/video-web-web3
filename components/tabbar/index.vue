@@ -61,7 +61,7 @@ const MINE_ICON = '<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx
 
 const navs = [
   {
-    title: '首页',
+    title: 'Home',
     path: 'pages/index/index',
     iconDefault: svgIcon('<path d="M3 10.5L12 4l9 6.5V19a2 2 0 01-2 2H5a2 2 0 01-2-2v-8.5z"/><polyline points="9 22 9 12 15 12 15 22"/>', COLOR_DEFAULT),
     iconActive: svgIcon('<path d="M3 10.5L12 4l9 6.5V19a2 2 0 01-2 2H5a2 2 0 01-2-2v-8.5z"/><polyline points="9 22 9 12 15 12 15 22"/>', COLOR_WHITE)
@@ -85,7 +85,7 @@ const navs = [
   //   iconActive: svgIcon('<rect x="5" y="11" width="14" height="10" rx="1.5"/><polyline points="12 11 12 5"/><polyline points="9 8 12 5 15 8"/>', COLOR_WHITE)
   // },
   {
-    title: '我的',
+    title: 'Profile',
     path: 'pages/mine/index',
     iconDefault: svgIcon(MINE_ICON, COLOR_DEFAULT),
     iconActive: svgIcon(MINE_ICON, COLOR_WHITE)

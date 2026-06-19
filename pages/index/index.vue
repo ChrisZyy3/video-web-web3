@@ -10,8 +10,8 @@
             <image class="brand-logo-img" :src="icons.logo" mode="aspectFit" />
           </view>
           <view class="brand-text">
-            <text class="brand-title">传媒</text>
-            <text class="brand-subtitle">打开新视界</text>
+            <text class="brand-title">Media</text>
+            <text class="brand-subtitle">Discover More</text>
           </view>
         </view>
 
@@ -20,7 +20,7 @@
           <input
             class="search-input"
             type="text"
-            placeholder="关键字"
+            placeholder="Keywords"
             placeholder-class="search-placeholder"
           />
         </view> -->
@@ -45,7 +45,7 @@
 			</template>
         </view>
         <view class="category-all" @click="handleAllCategories">
-          <text class="category-all-text">全部分类</text>
+          <text class="category-all-text">All Categories</text>
         </view>
       </view> -->
 
@@ -65,13 +65,13 @@
       <!-- 热门电影 -->
       <view class="section-wrap">
         <view class="section-title">
-          <text class="section-title-text">🔥 热门电影 🔥</text>
+          <text class="section-title-text">🔥 Hot Movies 🔥</text>
         </view>
         <view class="section-sub">
          <!-- <view class="section-sub-side" />
-          <text class="section-sub-text">• 精品专区 •</text>
+          <text class="section-sub-text">• Premium Zone •</text>
           <view class="section-sub-side section-sub-side--right">
-            <text class="section-more" @click="handleMore">更多 ></text>
+            <text class="section-more" @click="handleMore">More ></text>
           </view> -->
         </view>
       </view>
@@ -140,14 +140,14 @@ const showMemberSheet = ref(false)
 
 const COVER_SRC = '/static/images/video-cover.png'
 const noticeText = [
-	'1.新人免费看两部影片!',
-	'2.成为会员观看所有影片!'
+	'1. New users can watch 2 videos for free!',
+	'2. Become a member to watch all videos!'
 ]
 const noticeDuration = Math.max(14, noticeText.length * 0.32)
 
 const categories = Array.from({ length: 24 }, (_, i) => ({
   id: i + 1,
-  name: '分类'
+  name: 'Category'
 }))
 
 const featured = ref({})
@@ -190,12 +190,12 @@ const handleFavorite = (item) => {
   const added = toggleFavorite(item)
   if (added) {
     favoriteMap.value = { ...favoriteMap.value, [item.id]: true }
-    uni.showToast({ title: '已收藏', icon: 'none' })
+    uni.showToast({ title: 'Added to favorites', icon: 'none' })
   } else {
     const next = { ...favoriteMap.value }
     delete next[item.id]
     favoriteMap.value = next
-    uni.showToast({ title: '已取消收藏', icon: 'none' })
+    uni.showToast({ title: 'Removed from favorites', icon: 'none' })
   }
 }
 
@@ -218,7 +218,7 @@ const calcLayout = () => {
 }
 
 const handleMenu = () => {
-  uni.showToast({ title: '菜单', icon: 'none' })
+  uni.showToast({ title: 'Menu', icon: 'none' })
 }
 
 const handleCategory = (item) => {
@@ -232,7 +232,7 @@ const handleAllCategories = () => {
 }
 
 const handleMore = () => {
-  uni.showToast({ title: '更多', icon: 'none' })
+  uni.showToast({ title: 'More', icon: 'none' })
 }
 
 const pauseListVideos = () => {
