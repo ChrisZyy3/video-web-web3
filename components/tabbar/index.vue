@@ -1,8 +1,9 @@
 <template>
   <view class="tabbar-wrap">
+  <!-- :style="{ height: placeholderHeight + 'px', paddingBottom: safeBottom > 0 ? safeBottom + 'px' : '' }" -->
     <view
       class="tabbar-placeholder"
-      :style="{ height: placeholderHeight + 'px', paddingBottom: safeBottom > 0 ? safeBottom + 'px' : '' }"
+      
     />
     <!--  :style="safeBottom > 0 ? { paddingBottom: safeBottom + 'px' } : {}" -->
     <view

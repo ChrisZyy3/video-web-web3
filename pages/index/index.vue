@@ -14,6 +14,8 @@
             <text class="brand-subtitle">Discover More</text>
           </view>
         </view>
+        <view class="header-right">
+        </view>
         <view class="header-right" @click="removeLook">
         </view>
 
@@ -87,8 +89,8 @@
           :favorited="isFavorited(featured.id)"
           :video="getVideoUrl(featured)"
           :description="featured.description"
-		  :autoplay="false"
-		  :muted="false"
+          :autoplay="false"
+          :muted="false"
           @click="handleCard(featured)"
           @favorite="handleFavorite(featured)"
         />
@@ -111,7 +113,7 @@
         </view>
       </view>
 
-      <view class="bottom-space" />
+      <view class="bottom-space" :style="{ height: bottomSpaceHeight + 'px' }" />
     </scroll-view>
 
     <tabbar />
@@ -135,8 +137,12 @@ import { getLookMember, setLookMember } from '@/utils/look-member'
 const { proxy } = getCurrentInstance()
 const baseUrl = proxy.$baseUrl
 
+const TABBAR_CONTENT_RPX = 110
+const BULGE_EXTRA_RPX = 36
+
 const statusBarHeight = ref(0)
 const scrollHeight = ref(0)
+const bottomSpaceHeight = ref(60)
 const showMemberIntro = ref(false)
 const showMemberSheet = ref(false)
 
@@ -221,6 +227,13 @@ const calcLayout = () => {
   const sys = uni.getSystemInfoSync()
   statusBarHeight.value = sys.statusBarHeight || 0
   scrollHeight.value = sys.windowHeight || sys.screenHeight
+
+  let insetBottom = sys.safeAreaInsets?.bottom || 0
+  if (insetBottom === 0 && sys.safeArea && sys.screenHeight) {
+    insetBottom = Math.max(sys.screenHeight - sys.safeArea.bottom, 0)
+  }
+  const rpxToPx = (sys.windowWidth || 375) / 750
+  bottomSpaceHeight.value = Math.ceil((TABBAR_CONTENT_RPX + BULGE_EXTRA_RPX) * rpxToPx) + insetBottom
 }
 
 const handleMenu = () => {
@@ -566,6 +579,6 @@ onShow(() => {
 }
 
 .bottom-space {
-  height: 24rpx;
+  flex-shrink: 0;
 }
 </style>
