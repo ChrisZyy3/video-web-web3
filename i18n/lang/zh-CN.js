@@ -79,6 +79,7 @@ export default {
     saveFailed: '保存失败，请检查相册权限',
     downloadStarted: '开始下载',
     downloading: '下载中...',
+    downloadingProgress: '下载中 {percent}%',
     downloadFailed: '下载失败',
     failedToOpenFile: '打开文件失败'
   },

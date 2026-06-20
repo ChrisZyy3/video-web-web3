@@ -79,6 +79,7 @@ export default {
     saveFailed: 'Save failed. Please check album permissions',
     downloadStarted: 'Download started',
     downloading: 'Downloading...',
+    downloadingProgress: 'Downloading {percent}%',
     downloadFailed: 'Download failed',
     failedToOpenFile: 'Failed to open file'
   },

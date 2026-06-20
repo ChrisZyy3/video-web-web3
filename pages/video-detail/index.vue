@@ -164,7 +164,6 @@ const buildVideoUrl = (item) => {
 }
 
 const loadDetail = async (id) => {
-	console.log()
 	const res = await proxy.$http.get('/api/videos/'+id)
 	detail.value = {
 		// id: res.id,
@@ -240,6 +239,79 @@ const handleFavorite = () => {
 	uni.showToast({ title: added ? t('common.addedToFavorites') : t('common.removedFromFavorites'), icon: 'none' })
 }
 
+const getDownloadUrl = () => {
+	const item = detail.value
+	if (item.play_url) return item.play_url
+	return buildVideoUrl(item)
+}
+
+const sanitizeFileName = (name = 'video') => {
+	return String(name).replace(/[\\/:*?"<>|]/g, '_').trim().slice(0, 80) || 'video'
+}
+
+const triggerFileDownload = (href, fileName) => {
+	const link = document.createElement('a')
+	link.href = href
+	link.download = fileName
+	link.style.display = 'none'
+	document.body.appendChild(link)
+	link.click()
+	document.body.removeChild(link)
+}
+
+const updateDownloadProgress = (percent) => {
+	if (percent <= 0) return
+	uni.showLoading({
+		title: t('videoDetail.downloadingProgress', { percent }),
+		mask: true
+	})
+}
+
+const downloadViaUni = (url, fileName) => new Promise((resolve, reject) => {
+	const task = uni.downloadFile({
+		url,
+		success: (res) => {
+			if (res.statusCode !== 200) {
+				reject(new Error(`HTTP ${res.statusCode}`))
+				return
+			}
+			triggerFileDownload(res.tempFilePath, fileName)
+			uni.showToast({ title: t('videoDetail.downloadStarted'), icon: 'success' })
+			resolve()
+		},
+		fail: reject
+	})
+	task?.onProgressUpdate?.((res) => {
+		if (!res.totalBytesExpectedToWrite) return
+		const percent = Math.min(99, Math.round((res.totalBytesWritten / res.totalBytesExpectedToWrite) * 100))
+		updateDownloadProgress(percent)
+	})
+})
+
+const downloadViaFetchBlob = async (url, fileName) => {
+	const response = await fetch(url)
+	if (!response.ok) throw new Error(`HTTP ${response.status}`)
+	const blob = await response.blob()
+	const blobUrl = URL.createObjectURL(blob)
+	triggerFileDownload(blobUrl, fileName)
+	URL.revokeObjectURL(blobUrl)
+	uni.showToast({ title: t('videoDetail.downloadStarted'), icon: 'success' })
+}
+
+const downloadOnH5 = async (url) => {
+	const fileName = `${sanitizeFileName(detail.value.title || detail.value.description)}.mp4`
+
+	// 优先 uni.downloadFile：走浏览器原生下载通道，移动端比 fetch 全量进内存更快
+	try {
+		await downloadViaUni(url, fileName)
+		return
+	} catch (uniError) {
+		console.warn('H5 uni.downloadFile failed, fallback to fetch blob', uniError)
+	}
+
+	await downloadViaFetchBlob(url, fileName)
+}
+
 const saveOnApp = (filePath) => {
 	uni.saveVideoToPhotosAlbum({
 		filePath,
@@ -248,31 +320,28 @@ const saveOnApp = (filePath) => {
 	})
 }
 
-const saveOnH5 = (url) => {
-	const link = document.createElement('a')
-	link.href = url
-	link.download = `${detail.value.title || 'video'}.mp4`
-	link.target = '_blank'
-	document.body.appendChild(link)
-	link.click()
-	document.body.removeChild(link)
-	uni.showToast({ title: t('videoDetail.downloadStarted'), icon: 'none' })
-}
+const handleDownload = async () => {
+	const url = getDownloadUrl()
+	if (!url || downloading.value) return
 
-const handleDownload = () => {
-	if (!detail.value.video || downloading.value) return
 	downloading.value = true
 	uni.showLoading({ title: t('videoDetail.downloading'), mask: true })
 
 	// #ifdef H5
-	uni.hideLoading()
-	downloading.value = false
-	saveOnH5(detail.value.video)
+	try {
+		await downloadOnH5(url)
+	} catch (error) {
+		console.error('H5 download failed:', error)
+		uni.showToast({ title: t('videoDetail.downloadFailed'), icon: 'none' })
+	} finally {
+		uni.hideLoading()
+		downloading.value = false
+	}
 	return
 	// #endif
 
-	uni.downloadFile({
-		url: detail.value.video,
+	const task = uni.downloadFile({
+		url,
 		success: (res) => {
 			if (res.statusCode !== 200) {
 				uni.showToast({ title: t('videoDetail.downloadFailed'), icon: 'none' })
@@ -296,6 +365,11 @@ const handleDownload = () => {
 			uni.hideLoading()
 			downloading.value = false
 		}
+	})
+	task?.onProgressUpdate?.((res) => {
+		if (!res.totalBytesExpectedToWrite) return
+		const percent = Math.min(99, Math.round((res.totalBytesWritten / res.totalBytesExpectedToWrite) * 100))
+		updateDownloadProgress(percent)
 	})
 }
 
