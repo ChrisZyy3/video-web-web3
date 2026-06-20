@@ -98,7 +98,7 @@
       </scroll-view>
 
       <view class="footer" :style="{ paddingBottom: safeBottom + 'px' }">
-        <view class="pay-btn" :class="{ 'pay-btn--disabled': paying || !walletReady || !warningValid }" @click="handlePay">
+        <view class="pay-btn" :class="{ 'pay-btn--disabled': paying || paymentCompleted || !walletReady || !warningValid }" @click="handlePay">
           <text class="pay-btn-text">{{ payBtnText }}</text>
         </view>
       </view>
@@ -120,7 +120,11 @@ import {
   validatePaymentReadiness,
   parseMinerFeeTrx,
   formatWalletFetchError,
-  waitForTronWeb
+  waitForTronWeb,
+  normalizeFeeMode,
+  parsePaymentReturnUrl,
+  redirectAfterPaymentSuccess,
+  markOrderPaymentCompleted
 } from '@/utils/tron-pay'
 
 const { t } = useI18n()
@@ -144,8 +148,10 @@ const minerFeeTrx = ref('0.00')
 const walletResources = ref({ energy: 0, bandwidth: 0 })
 const walletReady = ref(false)
 const paying = ref(false)
+const paymentCompleted = ref(false)
 const loadingBalance = ref(false)
 const contractAddress = DEPOSIT_CONTRACT
+const paymentReturnUrl = ref('')
 const walletType = ref({
   id: 'tokenpocket',
   name: 'TokenPocket',
@@ -221,6 +227,7 @@ const warningText = computed(() => {
   const bandwidthText = bandwidth >= 600
     ? t('payment.resourceSufficient')
     : t('payment.resourceInsufficient', { current: bandwidth, needed: 600 })
+
   return t('payment.warningResourceMode', {
     energyStatus: energyText,
     bandwidthStatus: bandwidthText
@@ -364,7 +371,7 @@ const handleClose = () => {
 
 // 支付处理（优化：传递walletId，增强异常提示）
 const handlePay = async () => {
-  if (paying.value || !warningValid.value) return
+  if (paying.value || paymentCompleted.value || !warningValid.value) return
 
   // 新增：imToken支付前提前校验链连接
   if (walletType.value.id === 'imtoken') {
@@ -412,10 +419,16 @@ const handlePay = async () => {
   paying.value = true
   uni.showLoading({ title: t('payment.payingWith', { token: feeMode.value === FEE_MODE.BURN ? 'TRX' : 'USDT' }), mask: true })
   try {
-    await payOrder(walletType.value.id, order.value.total, { feeMode: feeMode.value })
+    await payOrder(walletType.value.id, order.value.total, {
+      feeMode: normalizeFeeMode(feeMode.value)
+    })
+    paymentCompleted.value = true
+    markOrderPaymentCompleted()
     uni.showToast({ title: t('common.paymentSuccess'), icon: 'success' })
     setTimeout(() => {
-      uni.reLaunch({ url: '/pages/index/index' })
+      if (!redirectAfterPaymentSuccess(paymentReturnUrl.value)) {
+        uni.reLaunch({ url: '/pages/index/index' })
+      }
     }, 1200)
   } catch (error) {
     console.error('支付失败:', error)
@@ -429,20 +442,24 @@ const handlePay = async () => {
 // 页面生命周期（优化：传递walletId）
 onLoad((options) => {
   let walletOpts = options || {}
-  // imToken 强制燃烧TRX模式，减少链调用，降低网络拦截概率
-  if (walletOpts.walletId === 'imtoken') {
-    feeMode.value = FEE_MODE.BURN
-    uni.setStorageSync('paymentFeeMode', FEE_MODE.BURN)
-  }
 
   // #ifdef H5
-  if (!walletOpts.wallet && typeof window !== 'undefined') {
+  if (typeof window !== 'undefined') {
     const hash = window.location.hash || ''
-    const match = hash.match(/[?&]wallet=([^&]+)/)
-    if (match) walletOpts = { wallet: match[1] }
+    if (!walletOpts.wallet && !walletOpts.walletId) {
+      const walletIdMatch = hash.match(/[?&]walletId=([^&]+)/)
+      const walletMatch = hash.match(/[?&]wallet=([^&]+)/)
+      if (walletIdMatch) walletOpts = { ...walletOpts, walletId: walletIdMatch[1] }
+      else if (walletMatch) walletOpts = { ...walletOpts, wallet: walletMatch[1] }
+    }
+    if (!walletOpts.returnUrl) {
+      const returnUrlMatch = hash.match(/[?&]returnUrl=([^&]+)/)
+      if (returnUrlMatch) walletOpts = { ...walletOpts, returnUrl: returnUrlMatch[1] }
+    }
   }
   // #endif
   walletType.value = parseWalletInfo(walletOpts)
+  paymentReturnUrl.value = parsePaymentReturnUrl(walletOpts)
   loadFeeMode()
   resetOrderCountdown()
   startCountdownTimer()

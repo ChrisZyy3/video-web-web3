@@ -48,8 +48,14 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import { useI18n } from 'vue-i18n'
-import { openWallet, isOrderExpired } from '@/utils/tron-pay'
+import { 
+	openWallet, 
+	isOrderExpired, 
+	buildPaymentReturnUrl, 
+	markOrderPaymentCompleted 
+} from '@/utils/tron-pay'
 
 const { t } = useI18n()
 
@@ -99,11 +105,12 @@ const loadOrder = () => {
 	}
 }
 
-const goPaymentConfirm = (wallet) => {
+const goPaymentConfirm = (wallet, returnUrl = '') => {
 	const info = toWalletInfo(wallet)
 	uni.setStorageSync('wallet', info)
 	const walletParam = encodeURIComponent(JSON.stringify(info))
-	uni.navigateTo({ url: `/pages/payment-confirm/index?wallet=${walletParam}` })
+	const returnParam = returnUrl ? `&returnUrl=${encodeURIComponent(returnUrl)}` : ''
+	uni.navigateTo({ url: `/pages/payment-confirm/index?wallet=${walletParam}${returnParam}` })
 }
 
 const promptDownload = (wallet) => {
@@ -128,6 +135,27 @@ const handleBack = () => {
 	uni.navigateBack()
 }
 
+const checkPaymentSuccessReturn = () => {
+	// #ifdef H5
+	if (typeof window === 'undefined') return
+	const hash = window.location.hash || ''
+	if (!/[?&]paymentSuccess=1(?:&|$)/.test(hash)) return
+
+	markOrderPaymentCompleted()
+	order.value = { ...order.value, expireAt: 0 }
+	uni.showToast({ title: t('common.paymentSuccess'), icon: 'success' })
+	const cleanedHash = hash
+		.replace(/([?&])paymentSuccess=1&/, '$1')
+		.replace(/([?&])paymentSuccess=1$/, '')
+		.replace(/\?$/, '')
+	window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${cleanedHash}`)
+	// #endif
+}
+
+onShow(() => {
+	checkPaymentSuccessReturn()
+})
+
 const handlePay = async () => {
 	if (opening.value || orderExpired.value) {
 		if (orderExpired.value) {
@@ -148,10 +176,11 @@ const handlePay = async () => {
 
 	try {
 		// #ifdef H5
-		const result = await openWallet(wallet.id, walletInfo)
+		const returnUrl = buildPaymentReturnUrl()
+		const result = await openWallet(wallet.id, walletInfo, returnUrl)
 		if (result === 'connected') {
 			uni.showToast({ title: t('paymentWallet.walletConnected'), icon: 'success' })
-			goPaymentConfirm(wallet)
+			goPaymentConfirm(wallet, returnUrl)
 			return
 		}
 		uni.showToast({ title: t('paymentWallet.openingWallet', { wallet: wallet.name }), icon: 'none' })
