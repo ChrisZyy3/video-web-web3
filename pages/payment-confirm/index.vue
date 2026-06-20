@@ -324,7 +324,7 @@ const refreshBalances = async ({ force = false, silent = false } = {}) => {
     const { resources, minerFee: feeInfo, ...balanceFields } = balances
     wallet.value = balanceFields
     walletResources.value = resources || { energy: 0, bandwidth: 0 }
-    if (feeInfo?.amount) {
+    if (feeInfo != null && feeInfo.amount != null) {
       minerFeeTrx.value = feeInfo.amount
     }
     walletReady.value = true
@@ -369,9 +369,14 @@ const handleClose = () => {
   }
 }
 
+// 支付前同步矿工费（与 payByDeposit 内部估算保持一致）
+const syncMinerFeeBeforePay = async () => {
+  await refreshBalances({ force: true })
+}
+
 // 支付处理（优化：传递walletId，增强异常提示）
 const handlePay = async () => {
-  if (paying.value || paymentCompleted.value || !warningValid.value) return
+  if (paying.value || paymentCompleted.value) return
 
   // 新增：imToken支付前提前校验链连接
   if (walletType.value.id === 'imtoken') {
@@ -401,7 +406,10 @@ const handlePay = async () => {
     }
   }
 
-  // 再次校验
+  // 支付前刷新矿工费，与 payByDeposit 使用同一估算链路
+  await syncMinerFeeBeforePay()
+
+  // 同步矿工费后再校验（避免展示值与支付时不一致）
   const check = validatePaymentReadiness({
     feeMode: feeMode.value,
     usdt: wallet.value.usdt,

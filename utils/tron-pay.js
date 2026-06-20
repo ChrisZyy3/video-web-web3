@@ -499,10 +499,11 @@ function calcSequentialContractBurnSun({ steps, resources, rates }) {
   }
 }
 
-// USDT 合约步骤能量取估算值与保底值的较大者
+// 链上 estimateEnergy 成功时优先用实测值；仅失败时回退保底能量
 function resolveUsdtStepEnergy(estimated, minEnergy) {
   const value = Number(estimated || 0)
-  return Math.max(value > 0 ? value : 0, minEnergy)
+  if (value > 0) return Math.ceil(value)
+  return minEnergy
 }
 
 // 估算合约调用所需能量
@@ -537,8 +538,8 @@ async function estimateBurnModeFeeSun(tronWeb, resources, rates) {
   })
 }
 
-// 资源模式：approve + deposit 串行网络费估算
-async function estimateResourceModeFeeSun(tronWeb, address, resources, rates, orderTotal) {
+// 构建 USDT 支付各步骤能量/带宽需求（与 payByDeposit 实际链路一致）
+async function buildUsdtPaymentSteps(tronWeb, address, orderTotal) {
   const amount = toUsdtAmount(orderTotal)
   const feeLimit = 150000000
   const steps = []
@@ -565,6 +566,7 @@ async function estimateResourceModeFeeSun(tronWeb, address, resources, rates, or
       feeLimit
     )
     steps.push({
+      action: 'approve',
       energyNeeded: resolveUsdtStepEnergy(approveEnergy, USDT_APPROVE_ENERGY_MIN),
       bandwidthNeeded: CONTRACT_TX_BANDWIDTH
     })
@@ -579,10 +581,17 @@ async function estimateResourceModeFeeSun(tronWeb, address, resources, rates, or
     feeLimit
   )
   steps.push({
+    action: 'deposit',
     energyNeeded: resolveUsdtStepEnergy(depositEnergy, USDT_DEPOSIT_ENERGY_MIN),
     bandwidthNeeded: CONTRACT_TX_BANDWIDTH
   })
 
+  return { steps, needsApprove }
+}
+
+// 资源模式：approve + deposit 串行网络费估算
+async function estimateResourceModeFeeSun(tronWeb, address, resources, rates, orderTotal) {
+  const { steps } = await buildUsdtPaymentSteps(tronWeb, address, orderTotal)
   return calcSequentialContractBurnSun({ steps, resources, rates })
 }
 
@@ -633,6 +642,25 @@ export async function estimateMinerFeeFromChain(tronWeb, address, feeMode, resou
     hint: burnSun > 0 ? t('tronPay.feeInsufficientResources') : t('tronPay.feePartialResources'),
     sufficient: false,
     source: 'chain'
+  }
+}
+
+// 支付前矿工费估算（与 payByDeposit / 页面展示共用同一套链上逻辑）
+export async function estimatePaymentMinerFee(walletId = '', feeMode = FEE_MODE.RESOURCE, orderTotal = '1.00') {
+  const tronWeb = await waitForTronWeb(walletId)
+  const rpcHost = 'https://api.trongrid.io'
+  if (tronWeb.fullNode?.host !== rpcHost) {
+    tronWeb.setFullNode(rpcHost)
+    tronWeb.setSolidityNode(rpcHost)
+  }
+  const address = tronWeb.defaultAddress.base58
+  const normalizedMode = normalizeFeeMode(feeMode)
+  const resources = await fetchAccountResources(tronWeb, address)
+  try {
+    return await estimateMinerFeeFromChain(tronWeb, address, normalizedMode, resources, orderTotal)
+  } catch (error) {
+    console.warn('支付前矿工费估算失败，使用兜底值', error)
+    return estimateMinerFeeFallback(normalizedMode, resources)
   }
 }
 
@@ -743,15 +771,10 @@ export function validatePaymentReadiness({ feeMode, usdt, trx, orderTotal, resou
     return { ok: false, message: t('tronPay.insufficientUsdt') }
   }
 
-  const energy = resources?.energy || 0
-  const bandwidth = resources?.bandwidth || 0
-  const resourcesFullyCover = energy >= ENERGY_NEEDED && bandwidth >= BANDWIDTH_NEEDED
-  const requiredTrx = resourcesFullyCover
-    ? MIN_TRX_RESOURCE
-    : Math.max(parseMinerFeeTrx(minerFeeTrx), MIN_TRX_RESOURCE)
+  const requiredTrx = feeTrx <= 0 ? MIN_TRX_RESOURCE : Math.max(feeTrx, MIN_TRX_RESOURCE)
 
   if (trxBal < requiredTrx) {
-    if (!resourcesFullyCover) {
+    if (feeTrx > 0) {
       return {
         ok: false,
         message: t('tronPay.insufficientTrxForResourceFee', { needed: requiredTrx.toFixed(2) })
@@ -844,6 +867,29 @@ async function waitForUsdtAllowance(usdtContract, owner, spender, minAmount, tim
     await new Promise((resolve) => setTimeout(resolve, 1500))
   }
   throw new Error(t('tronPay.usdtAllowanceTimeout'))
+}
+
+// 轮询 USDT 余额是否已扣减（TokenPocket 等签名后可能无 txid）
+async function waitForUsdtPaymentEffect(usdtContract, owner, amount, timeout = 35000) {
+  const needed = BigInt(amount)
+  let before
+  try {
+    before = parseRawUint(await withRetry(() => usdtContract.balanceOf(owner).call()))
+  } catch (error) {
+    console.warn('支付结果轮询：读取 USDT 余额失败', error)
+    return false
+  }
+  const start = Date.now()
+  while (Date.now() - start < timeout) {
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+    try {
+      const after = parseRawUint(await usdtContract.balanceOf(owner).call())
+      if (before - after >= needed) return true
+    } catch (error) {
+      console.warn('支付结果轮询：USDT 余额查询失败', error)
+    }
+  }
+  return false
 }
 
 // 确保 USDT 已授权给收款合约（不足则发起 approve）
@@ -983,6 +1029,7 @@ export async function payByTrx(walletId = '', orderTotal, options = {}) {
     minerFeeTrx = fee.amountTrx
   } catch (error) {
     console.warn('支付前矿工费估算失败，使用兜底值', error)
+    minerFeeTrx = estimateMinerFeeFallback(feeMode, resources).amountTrx
   }
 
   const readiness = validatePaymentReadiness({
@@ -1040,6 +1087,7 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
     minerFeeTrx = fee.amountTrx
   } catch (error) {
     console.warn('支付前矿工费估算失败，使用兜底值', error)
+    minerFeeTrx = estimateMinerFeeFallback(feeMode, resources).amountTrx
   }
 
   const readiness = validatePaymentReadiness({
@@ -1071,6 +1119,10 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
       if (tx?.result === true) {
         return tx
       }
+      // TokenPocket 等钱包可能已弹出确认但返回体无 txid，轮询余额避免再次 deposit
+      console.warn('deposit 返回无 txid，等待链上 USDT 扣款生效')
+      const paid = await waitForUsdtPaymentEffect(usdtContract, address, amount)
+      if (paid) return tx
       throw new Error(t('tronPay.depositTxFailed'))
     } catch (e) {
       if (isUserRejectedError(e)) {
