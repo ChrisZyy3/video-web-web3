@@ -183,6 +183,7 @@ const Keywords = ref('')
 
 const removeLook = () => {
   removeLookVideo()
+  uni.removeStorageSync('listOrder')
 }
 
 const syncFavorites = () => {

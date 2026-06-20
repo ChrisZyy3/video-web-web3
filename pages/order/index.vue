@@ -1,8 +1,5 @@
 <template>
 	<view class="page">
-		<view class="page-bg-wrap">
-			<image class="page-bg page-bg--swirl" src="/static/images/login-bg.png" mode="aspectFill" />
-		</view>
 
 		<view class="main" :style="{ paddingTop: statusBarHeight + 'px' }">
 			<view class="nav-bar">
@@ -60,7 +57,7 @@
 					</view>
 				</view>
 
-				<view class="list-end">
+				<view class="list-end" v-if="filteredOrders&&filteredOrders.lenght>10">
 					<text class="list-end-text">{{ t('order.listEnd') }}</text>
 				</view>
 			</scroll-view>
@@ -158,7 +155,8 @@ onMounted(() => {
 .page {
 	min-height: 100vh;
 	position: relative;
-	background: #000;
+	background: #121212;
+	
 }
 
 .page-bg-wrap {
