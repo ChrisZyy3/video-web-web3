@@ -13,21 +13,21 @@
             <text class="brand-title">Media</text>
             <text class="brand-subtitle">Discover More</text>
           </view>
-        </view>
-        <view class="header-right">
-        </view>
-        <view class="header-right" @click="removeLook">
+          <view class="header-right" @click="removeLook">
+          </view>
         </view>
 
-       <!-- <view class="header-search">
+       <view class="header-search">
           <image class="search-icon" :src="icons.search" mode="aspectFit" />
           <input
+            v-model="Keywords"
             class="search-input"
             type="text"
             placeholder="Keywords"
             placeholder-class="search-placeholder"
+            @input="inputKeywords"
           />
-        </view> -->
+        </view>
 
        <!-- <view class="header-menu" @click="handleMenu">
           <image class="menu-icon" :src="icons.menu" mode="aspectFit" />
@@ -176,7 +176,11 @@ const gridCards = ref([])
 //   { id: 6, views: 6320, video: VIDEO_SRC, cover: COVER_SRC, title: '内容' }
 // ]
 
+const dataList = ref([])
+
 const favoriteMap = ref({})
+
+const Keywords = ref('')
 
 const removeLook = () => {
   removeLookVideo()
@@ -289,8 +293,25 @@ const handleCard = (item) => {
   goVideoDetail(item)
 }
 
+const inputKeywords = ()=> {
+  let list = []
+  if(Keywords.value){
+    list = dataList.value.filter((item) => {
+      let text = item.title+item.description
+      return item.description.toLowerCase().includes(Keywords.value.toLowerCase())
+    })
+    gridCards.value = []
+    if(list.length>1) gridCards.value = list.slice(1)
+    if(list.length>0) featured.value = list[0]
+  }else{
+    if(dataList.value.length>1) gridCards.value = dataList.value.slice(1)
+    if(dataList.value.length>0) featured.value = dataList.value[0]
+  }
+}
+
 const getList = async () => {
   const res = await proxy.$http.get('/api/videos')
+  dataList.value = res.items
   if(res.items.length>1) gridCards.value = res.items.slice(1)
   if(res.items.length>0) featured.value = res.items[0]
 }
