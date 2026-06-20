@@ -288,19 +288,15 @@ const startCountdownTimer = () => {
   timer = setInterval(updateCountdown, 1000)
 }
 
-// 加载支付方式（原有逻辑保留）
+// 默认使用左侧「能量/带宽」选项（每次进入支付页重置，不读取历史选择）
 const loadFeeMode = () => {
-  const saved = uni.getStorageSync('paymentFeeMode')
-  if (saved === FEE_MODE.BURN || saved === FEE_MODE.RESOURCE) {
-    feeMode.value = saved
-  }
+  feeMode.value = FEE_MODE.RESOURCE
 }
 
 // 选择支付方式：已连接时刷新（燃烧模式已降为轻量 RPC）
 const selectFeeMode = (mode) => {
   if (feeMode.value === mode) return
   feeMode.value = mode
-  uni.setStorageSync('paymentFeeMode', mode)
   if (walletReady.value) {
     refreshBalances({ force: true })
   }
