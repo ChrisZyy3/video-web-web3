@@ -66,7 +66,7 @@ const opening = ref(false)
 const order = ref({ total: '1.00', expireAt: 0 })
 
 const wallets = [
-	{ id: 'tronlink', name: 'TronLink', abbr: 'TL', bg: '#3B82F6', icon: 'T' },
+	//{ id: 'tronlink', name: 'TronLink', abbr: 'TL', bg: '#3B82F6', icon: 'T' },
 	{ id: 'tokenpocket', name: 'TokenPocket', abbr: 'TP', bg: '#2980FF', icon: 'T' },
 	{ id: 'imtoken', name: 'imToken', abbr: 'im', bg: '#4F8EF7', icon: 'I' },
 	{ id: 'bitkeep', name: 'BitKeep', abbr: 'BG', bg: '#00B4D8', icon: 'B' }

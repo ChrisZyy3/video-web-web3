@@ -131,10 +131,11 @@ const scrollHeight = ref(0)
 const safeBottom = ref(0)
 
 // 订单相关
+const ORDER_DURATION_MS = 30 * 60 * 1000
 const countdown = ref('30:00')
 const order = ref({
   total: '1.00',
-  expireAt: Date.now() + 30 * 60 * 1000
+  expireAt: Date.now() + ORDER_DURATION_MS
 })
 
 // 钱包相关
@@ -264,6 +265,20 @@ const loadOrder = () => {
   if (data) {
     order.value = { ...order.value, ...data }
   }
+}
+
+// 每次进入页面重置 30 分钟倒计时
+const resetOrderCountdown = () => {
+  loadOrder()
+  order.value.expireAt = Date.now() + ORDER_DURATION_MS
+  uni.setStorageSync('pendingOrder', { ...order.value })
+  countdown.value = '30:00'
+}
+
+const startCountdownTimer = () => {
+  if (timer) clearInterval(timer)
+  updateCountdown()
+  timer = setInterval(updateCountdown, 1000)
 }
 
 // 加载支付方式（原有逻辑保留）
@@ -428,15 +443,15 @@ onLoad((options) => {
   }
   // #endif
   walletType.value = parseWalletInfo(walletOpts)
-  loadOrder()
   loadFeeMode()
-
-  if (isOrderExpired(order.value)) {
-    uni.showToast({ title: t('common.orderExpired'), icon: 'none' })
-  }
+  resetOrderCountdown()
+  startCountdownTimer()
 })
 
 onShow(async () => {
+  resetOrderCountdown()
+  startCountdownTimer()
+
   // imToken切后台会销毁tronWeb，延迟等待重新注入
   if (walletType.value.id === 'imtoken') {
     await new Promise(r => setTimeout(r, 800))
@@ -448,8 +463,6 @@ onShow(async () => {
 
 onMounted(async () => {
   calcLayout()
-  updateCountdown()
-  timer = setInterval(updateCountdown, 1000)
 
   // imToken 页面加载延迟2.5秒再请求余额，避免刚打开就发RPC被拦截
   if (walletType.value.id === 'imtoken') {
