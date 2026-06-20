@@ -90,6 +90,13 @@ const calcLayout = () => {
 const loadOrder = () => {
 	const data = uni.getStorageSync('pendingOrder')
 	if (data) order.value = { ...order.value, ...data }
+	if (opening.value || orderExpired.value) {
+		if (orderExpired.value) {
+			uni.showToast({ title: t('common.orderExpired'), icon: 'none' })
+			uni.reLaunch({ url: '/pages/index/index' })
+		}
+		return
+	}
 }
 
 const goPaymentConfirm = (wallet) => {
