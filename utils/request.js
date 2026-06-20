@@ -1,4 +1,9 @@
 import { baseUrl } from '@/env'
+import i18n from '@/i18n'
+
+function t(key, params) {
+  return i18n.global.t(key, params)
+}
 
 // 请求白名单（不需要携带token的接口）
 const whiteList = ['/login', '/register']
@@ -51,13 +56,13 @@ const request = async (options) => {
       return data
     } else {
       // http状态码异常 404/500等
-      uni.showToast({ title: `${statusCode}`, icon: 'none' })
+      uni.showToast({ title: t('common.httpError', { code: statusCode }), icon: 'none' })
       return Promise.reject(res)
     }
   } catch (err) {
     // 网络超时、断网
     uni.hideLoading()
-    uni.showToast({ title: `err`, icon: 'none' })
+    uni.showToast({ title: t('common.requestError'), icon: 'none' })
     return Promise.reject(err)
   }
 }

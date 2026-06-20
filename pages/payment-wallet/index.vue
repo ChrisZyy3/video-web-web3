@@ -8,14 +8,14 @@
 			</view>
 
 			<view class="page-head">
-				<text class="page-title">Select Payment Wallet</text>
-				<text class="page-sub">Choose the wallet you use to pay</text>
+				<text class="page-title">{{ t('paymentWallet.title') }}</text>
+				<text class="page-sub">{{ t('paymentWallet.subtitle') }}</text>
 			</view>
 
 			<view class="amount-card">
-				<text class="amount-label">Amount Due</text>
+				<text class="amount-label">{{ t('paymentWallet.amountDue') }}</text>
 				<text class="amount-value">{{ order.total }} USDT</text>
-				<text v-if="orderExpired" class="amount-expired">Order expired. Please go back and place a new order.</text>
+				<text v-if="orderExpired" class="amount-expired">{{ t('paymentWallet.orderExpiredHint') }}</text>
 			</view>
 
 			<view class="wallet-grid">
@@ -40,7 +40,7 @@
 				:class="{ 'footer-btn--disabled': opening || orderExpired }"
 				@click="handlePay"
 			>
-				<text class="footer-btn-text">{{ opening ? 'Connecting...' : 'Open Wallet to Pay' }}</text>
+				<text class="footer-btn-text">{{ opening ? t('paymentWallet.connecting') : t('paymentWallet.openWalletToPay') }}</text>
 			</view>
 		</view>
 	</view>
@@ -48,7 +48,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { openWallet, isOrderExpired } from '@/utils/tron-pay'
+
+const { t } = useI18n()
 
 const toWalletInfo = (wallet) => ({
 	id: wallet.id,
@@ -58,7 +61,7 @@ const toWalletInfo = (wallet) => ({
 
 const statusBarHeight = ref(0)
 const safeBottom = ref(0)
-const selectedWallet = ref('tokenpocket')
+const selectedWallet = ref('')
 const opening = ref(false)
 const order = ref({ total: '1.00', expireAt: 0 })
 
@@ -99,10 +102,10 @@ const goPaymentConfirm = (wallet) => {
 const promptDownload = (wallet) => {
 	setTimeout(() => {
 		uni.showModal({
-			title: `${wallet.name} not opened?`,
-			content: 'Please confirm the wallet is installed, or open this page in the wallet\'s built-in browser to complete payment.',
-			confirmText: 'Download',
-			cancelText: 'Got it',
+			title: t('paymentWallet.walletNotOpened', { wallet: wallet.name }),
+			content: t('paymentWallet.downloadPrompt'),
+			confirmText: t('paymentWallet.download'),
+			cancelText: t('paymentWallet.gotIt'),
 			success: (res) => {
 				// #ifdef H5
 				if (res.confirm && typeof window !== 'undefined') {
@@ -121,30 +124,30 @@ const handleBack = () => {
 const handlePay = async () => {
 	if (opening.value || orderExpired.value) {
 		if (orderExpired.value) {
-			uni.showToast({ title: 'Order expired. Please place a new order.', icon: 'none' })
+			uni.showToast({ title: t('common.orderExpired'), icon: 'none' })
 			uni.reLaunch({ url: '/pages/index/index' })
 		}
 		return
 	}
 
 	const wallet = wallets.find((w) => w.id === selectedWallet.value)
-	if (!wallet) return
+	if (!wallet) return uni.showToast({ title: t('paymentWallet.subtitle'), icon: 'none' })
 
 	const walletInfo = toWalletInfo(wallet)
 	uni.setStorageSync('wallet', walletInfo)
 
 	opening.value = true
-	uni.showLoading({ title: 'Connecting wallet...', mask: true })
+	uni.showLoading({ title: t('paymentWallet.connectingWallet'), mask: true })
 
 	try {
 		// #ifdef H5
 		const result = await openWallet(wallet.id, walletInfo)
 		if (result === 'connected') {
-			uni.showToast({ title: 'Wallet connected', icon: 'success' })
+			uni.showToast({ title: t('paymentWallet.walletConnected'), icon: 'success' })
 			goPaymentConfirm(wallet)
 			return
 		}
-		uni.showToast({ title: `Opening ${wallet.name}`, icon: 'none' })
+		uni.showToast({ title: t('paymentWallet.openingWallet', { wallet: wallet.name }), icon: 'none' })
 		promptDownload(wallet)
 		// #endif
 
@@ -153,7 +156,7 @@ const handlePay = async () => {
 		// #endif
 	} catch (error) {
 		console.error('打开钱包失败:', error)
-		uni.showToast({ title: error?.message || 'Failed to open wallet', icon: 'none' })
+		uni.showToast({ title: error?.message || t('paymentWallet.failedToOpenWallet'), icon: 'none' })
 	} finally {
 		uni.hideLoading()
 		opening.value = false

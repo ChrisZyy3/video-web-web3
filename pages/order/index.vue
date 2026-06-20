@@ -9,7 +9,7 @@
 				<view class="back-btn" @click="handleBack">
 					<text class="back-icon">‹</text>
 				</view>
-				<text class="nav-title">Order Details</text>
+				<text class="nav-title">{{ t('order.title') }}</text>
 				<view class="nav-placeholder" />
 			</view>
 
@@ -29,7 +29,7 @@
 
 			<scroll-view class="scroll-body" scroll-y :style="{ height: scrollHeight + 'px' }">
 				<view v-if="filteredOrders.length === 0" class="empty-tip">
-					<text class="empty-tip-text">No orders yet</text>
+					<text class="empty-tip-text">{{ t('order.noOrders') }}</text>
 				</view>
 
 				<view
@@ -38,7 +38,7 @@
 					class="order-card"
 				>
 					<view class="order-head">
-						<text class="order-no">Order No.: {{ order.orderNo }}</text>
+						<text class="order-no">{{ t('order.orderNo') }}: {{ order.orderNo }}</text>
 						<text
 							class="order-status"
 							:class="order.status === 'paid' ? 'order-status--paid' : 'order-status--unpaid'"
@@ -53,7 +53,7 @@
 							<text class="order-title">{{ order.title }}</text>
 							<!--<text class="order-date">{{ order.contact }}</text>-->
 							<view class="order-price-row">
-								<text class="order-price-label">Paid</text>
+								<text class="order-price-label">{{ t('order.paid') }}</text>
 								<text class="order-price">{{ order.total }} {{order.currency}}</text>
 							</view>
 						</view>
@@ -61,7 +61,7 @@
 				</view>
 
 				<view class="list-end">
-					<text class="list-end-text">You've reached the end</text>
+					<text class="list-end-text">{{ t('order.listEnd') }}</text>
 				</view>
 			</scroll-view>
 		</view>
@@ -70,16 +70,19 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const statusBarHeight = ref(0)
 const scrollHeight = ref(0)
 const activeTab = ref('all')
 
-const tabs = [
-	{ key: 'all', label: 'All' },
-	{ key: 'paid', label: 'Paid' },
-	{ key: 'unpaid', label: 'Unpaid' }
-]
+const tabs = computed(() => [
+	{ key: 'all', label: t('order.tabAll') },
+	{ key: 'paid', label: t('order.tabPaid') },
+	{ key: 'unpaid', label: t('order.tabUnpaid') }
+])
 
 const orders = ref([
 	// {

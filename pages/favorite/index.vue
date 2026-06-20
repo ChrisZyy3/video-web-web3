@@ -8,7 +8,7 @@
 				<view class="back-btn" @click="handleBack">
 					<text class="back-icon"></text>
 				</view>
-			<text class="nav-title">Favorites</text>
+			<text class="nav-title">{{ t('favorite.title') }}</text>
 			<view class="nav-placeholder" />
 	  </view>
 
@@ -27,7 +27,7 @@
         </view>
       </view>
       <view v-else class="empty-wrap">
-        <text class="empty-text">No favorites yet</text>
+        <text class="empty-text">{{ t('favorite.empty') }}</text>
       </view>
 
       <view class="bottom-space" />
@@ -39,10 +39,13 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { onShow } from '@dcloudio/uni-app'
 import tabbar from '@/components/tabbar/index'
 import videoCard from '@/components/video-card/index'
 import { getFavorites, toggleFavorite } from '@/utils/favorites'
+
+const { t } = useI18n()
 
 const COVER_SRC = '/static/images/video-cover.png'
 
@@ -67,7 +70,7 @@ const handleBack = () => {
 const handleFavorite = (item) => {
   toggleFavorite(item)
   loadFavorites()
-  uni.showToast({ title: 'Removed from favorites', icon: 'none' })
+  uni.showToast({ title: t('common.removedFromFavorites'), icon: 'none' })
 }
 
 const pauseListVideos = () => {
@@ -82,7 +85,7 @@ const handleCard = (item) => {
   pauseListVideos()
   uni.setStorageSync('videoDetailCache', {
     id: item.id,
-    title: item.description || item.title || 'Content',
+    title: item.description || item.title || t('common.content'),
     description: item.description || '',
     views: item.views || 0,
     play_url: item.play_url || '',

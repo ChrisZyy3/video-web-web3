@@ -5,9 +5,9 @@
 				<text class="sheet-close-text">×</text>
 			</view>
 
-			<text class="sheet-title">{{ product.title }}</text>
+			<text class="sheet-title">{{ productTitle }}</text>
 			<view class="field">
-				<text class="field-label">Become VIP to watch all content</text>
+				<text class="field-label">{{ t('memberSheet.becomeVipDesc') }}</text>
 			</view>
 			<text class="sheet-price">{{ product.price }} USDT</text>
 			
@@ -77,14 +77,17 @@
 			</view> -->
 
 			<view class="sheet-submit" @click="handleSubmit">
-				<text class="sheet-submit-text">Place Order</text>
+				<text class="sheet-submit-text">{{ t('memberSheet.placeOrder') }}</text>
 			</view>
 		</view>
 	</view>
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
 	visible: { type: Boolean, default: false }
@@ -99,11 +102,19 @@ const countryIndex = ref(0)
 const gender = ref('male')
 
 const product = {
-	title: 'Become VIP',
 	price: '1.00'
 }
 
-const countries = ['Random', 'China', 'United States', 'Japan', 'South Korea', 'Singapore']
+const productTitle = computed(() => t('memberSheet.becomeVip'))
+
+const countries = computed(() => [
+	t('memberSheet.countryRandom'),
+	t('memberSheet.countryChina'),
+	t('memberSheet.countryUS'),
+	t('memberSheet.countryJapan'),
+	t('memberSheet.countryKorea'),
+	t('memberSheet.countrySingapore')
+])
 
 const icons = {
 	mail: svgIcon('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>', '#8B867C'),
@@ -143,13 +154,13 @@ const handleSubmit = () => {
 	const total = (unitPrice * quantity.value).toFixed(4)
 	const order = {
 		orderNo,
-		title: product.title,
+		title: productTitle.value,
 		unitPrice: product.price,
 		total,
 		contact: contact.value.trim() || '--',
 		quantity: quantity.value,
-		country: countries[countryIndex.value],
-		gender: gender.value === 'male' ? 'Male' : 'Female',
+		country: countries.value[countryIndex.value],
+		gender: gender.value === 'male' ? t('memberSheet.male') : t('memberSheet.female'),
 		network: 'TRC20',
 		currency: 'USDT',
 		expireAt: Date.now() + 30 * 60 * 1000

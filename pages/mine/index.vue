@@ -9,17 +9,17 @@
 						<image class="avatar" :src="defaultAvatar" mode="aspectFill" />
 					</view>
 					<view class="user-info">
-						<view class="info-row">
-							<text class="info-label">Account</text>
-							<text class="info-value info-value--empty">Not logged in</text>
-						</view>
+						<!--<view class="info-row">
+							<text class="info-label">{{ t('mine.account') }}</text>
+							<text class="info-value info-value--empty">{{ t('mine.notLoggedIn') }}</text>
+						</view>-->
 						<view class="info-grid">
 							<view class="info-cell">
-								<text class="info-label">ID</text>
+								<text class="info-label">{{ t('mine.id') }}</text>
 								<text class="info-value info-value--empty">--</text>
 							</view>
 							<view class="info-cell info-cell--right" @click="handleBrowser">
-								<text class="info-label">Browser</text>
+								<text class="info-label">{{ t('mine.browser') }}</text>
 								<view class="info-cell-value">
 									<text class="info-value">Chrome</text>
 									<text class="arrow-icon">›</text>
@@ -28,12 +28,21 @@
 						</view>
 						<view class="info-grid">
 							<view class="info-cell">
-								<text class="info-label">Purchased</text>
+								<text class="info-label">{{ t('mine.purchased') }}</text>
 								<text class="info-count">0</text>
 							</view>
 							<view class="info-cell info-cell--right">
-								<text class="info-label">Version</text>
+								<text class="info-label">{{ t('mine.version') }}</text>
 								<text class="info-value">v1.0.68.102</text>
+							</view>
+						</view>
+						<view class="info-grid">
+							<view class="info-cell info-cell--lang" @click="handleLanguage">
+								<text class="info-label">{{ t('mine.language') }}</text>
+								<view class="info-cell-value">
+									<text class="info-value">{{ currentLangLabel }}</text>
+									<text class="arrow-icon">›</text>
+								</view>
 							</view>
 						</view>
 					</view>
@@ -43,13 +52,13 @@
 				</view>
 				<view class="member-tag">
 					<view class="member-dot" />
-					<text class="member-tag-text">Non-member</text>
+					<text class="member-tag-text">{{ t('mine.nonMember') }}</text>
 				</view>
 			</view>
 
 			<view class="action-btns">
 				<view class="btn-member" @click="handleMember">
-					<text class="btn-member-text">Become a Member</text>
+					<text class="btn-member-text">{{ t('mine.becomeMember') }}</text>
 				</view>
 				<!-- <view class="btn-outline" @click="handleLogin">
 					<text class="btn-outline-text">Log In</text>
@@ -58,7 +67,7 @@
 					<text class="btn-outline-text">Change Password</text>
 				</view> -->
 				<view class="btn-outline" @click="handleOrder">
-					<text class="btn-outline-text">Order Details</text>
+					<text class="btn-outline-text">{{ t('mine.orderDetails') }}</text>
 				</view>
 			</view>
 
@@ -92,9 +101,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import tabbar from '@/components/tabbar/index'
 import memberSheet from '@/components/member-sheet/index'
+
+const { t, locale } = useI18n()
 
 const domainUrl = 'http://www.xxx.com/xxx/xxx'
 const defaultAvatar = '/static/images/default-avatar.svg'
@@ -102,6 +114,10 @@ const defaultAvatar = '/static/images/default-avatar.svg'
 const statusBarHeight = ref(0)
 const scrollHeight = ref(0)
 const showMemberSheet = ref(false)
+
+const currentLangLabel = computed(() =>
+	locale.value === 'zh-CN' ? t('mine.langZh') : t('mine.langEn')
+)
 
 const icons = {
 	logout: svgData('<path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>', '#BF9566'),
@@ -137,7 +153,7 @@ const calcLayout = () => {
 }
 
 const handleLogout = () => {
-	uni.showToast({ title: 'Logged out', icon: 'none' })
+	uni.showToast({ title: t('mine.loggedOut'), icon: 'none' })
 }
 
 const handleMember = () => {
@@ -157,7 +173,17 @@ const handleOrder = () => {
 }
 
 const handleBrowser = () => {
-	uni.showToast({ title: 'Switch browser', icon: 'none' })
+	uni.showToast({ title: t('mine.switchBrowser'), icon: 'none' })
+}
+
+const handleLanguage = () => {
+	const next = locale.value === 'zh-CN' ? 'en' : 'zh-CN'
+	locale.value = next
+	uni.setStorageSync('lang', next)
+	uni.showToast({
+		title: next === 'zh-CN' ? t('mine.switchedToZh') : t('mine.switchedToEn'),
+		icon: 'none'
+	})
 }
 
 const handleQrPreview = () => {
@@ -171,7 +197,7 @@ const handleCopyDomain = () => {
 	uni.setClipboardData({
 		data: domainUrl,
 		success: () => {
-			uni.showToast({ title: 'Copied', icon: 'success' })
+			uni.showToast({ title: t('common.copied'), icon: 'success' })
 		}
 	})
 }
@@ -259,6 +285,15 @@ onMounted(() => {
 
 .info-cell--right {
 	justify-content: flex-end;
+}
+
+.info-cell--lang {
+	width: 100%;
+	justify-content: space-between;
+}
+
+.info-cell--lang .info-cell-value {
+	margin-left: auto;
 }
 
 .info-cell-value {

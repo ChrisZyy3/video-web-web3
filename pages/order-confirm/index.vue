@@ -20,8 +20,8 @@
 			</view>
 
 			<view class="page-head">
-				<text class="page-title">Order Details</text>
-				<text class="page-sub">Please confirm your order information</text>
+				<text class="page-title">{{ t('orderConfirm.title') }}</text>
+				<text class="page-sub">{{ t('orderConfirm.subtitle') }}</text>
 			</view>
 
 			<scroll-view class="scroll-body" scroll-y :style="{ height: scrollHeight + 'px' }">
@@ -29,7 +29,7 @@
 					<text class="amount-value">
 					{{ order.total }} USDT
 					</text>
-					<text class="amount-network">Network · {{ order.network }}</text>
+					<text class="amount-network">{{ t('orderConfirm.network') }} · {{ order.network }}</text>
 
 					<!-- <view class="info-banner">
 						<image class="info-banner-icon" :src="icons.info" mode="aspectFit" />
@@ -39,16 +39,16 @@
 					<view class="timer-box">
 						<image class="timer-icon" :src="icons.clock" mode="aspectFit" />
 						<view class="timer-content">
-							<text class="timer-label">Order Expires</text>
+							<text class="timer-label">{{ t('orderConfirm.orderExpires') }}</text>
 							<text class="timer-value">{{ countdown }}</text>
 						</view>
 					</view>
 
 					<view class="detail-card">
-						<text class="detail-title">Order Information</text>
+						<text class="detail-title">{{ t('orderConfirm.orderInfo') }}</text>
 						<view class="detail-grid">
 							<view class="detail-cell">
-								<text class="detail-label">Payment Amount</text>
+								<text class="detail-label">{{ t('orderConfirm.paymentAmount') }}</text>
 								<text class="detail-value">${{ payAmount }}</text>
 							</view>
 							<view class="detail-cell">
@@ -56,16 +56,16 @@
 								<text class="detail-value">{{ order.contact }}</text> -->
 							</view>
 							<view class="detail-cell">
-								<text class="detail-label">Unit Price</text>
+								<text class="detail-label">{{ t('orderConfirm.unitPrice') }}</text>
 								<text class="detail-value">{{ order.unitPrice }} USDT</text>
 							</view>
 							<view class="detail-cell">
-								<text class="detail-label">Quantity</text>
+								<text class="detail-label">{{ t('orderConfirm.quantity') }}</text>
 								<text class="detail-value">{{ order.quantity }}</text>
 							</view>
 						</view>
 						<view class="detail-row-full">
-							<text class="detail-label">Order No.</text>
+							<text class="detail-label">{{ t('orderConfirm.orderNo') }}</text>
 							<text class="detail-value detail-value--sm">{{ order.orderNo }}</text>
 						</view>
 					</view>
@@ -101,7 +101,7 @@
 
 			<view class="footer" :style="{ paddingBottom: safeBottom + 'px' }">
 				<view class="footer-btn" @click="handleNext">
-					<text class="footer-btn-text">Next: Confirm Order</text>
+					<text class="footer-btn-text">{{ t('orderConfirm.nextConfirm') }}</text>
 				</view>
 			</view>
 		</view>
@@ -110,6 +110,9 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const statusBarHeight = ref(0)
 const scrollHeight = ref(0)
@@ -171,7 +174,7 @@ const updateCountdown = () => {
 	countdown.value = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
 	if (left <= 0 && timer) {
 		clearInterval(timer)
-		uni.showToast({ title: 'Order expired', icon: 'none' })
+		uni.showToast({ title: t('orderConfirm.orderExpired'), icon: 'none' })
 		uni.relaunch({url: '/pages/index/index'})
 	}
 }
@@ -181,11 +184,11 @@ const handleBack = () => {
 }
 
 const handleService = () => {
-	uni.showToast({ title: 'Contact support', icon: 'none' })
+	uni.showToast({ title: t('orderConfirm.contactSupport'), icon: 'none' })
 }
 
 const handleEnergy = () => {
-	uni.showToast({ title: 'TRX energy purchase', icon: 'none' })
+	uni.showToast({ title: t('orderConfirm.trxEnergy'), icon: 'none' })
 }
 
 const handleNext = () => {

@@ -5,7 +5,7 @@
 				<view class="back-btn" @click="handleBack">
 					<text class="back-icon">‹</text>
 				</view>
-				<text class="nav-title">Video Details</text>
+				<text class="nav-title">{{ t('videoDetail.title') }}</text>
 				<!-- <view class="fav-btn" @click="handleFavorite">
 					<image class="fav-icon" :src="heartIcon" mode="aspectFit" />
 				</view> -->
@@ -64,17 +64,17 @@
 				<view class="action-row">
 					<view class="action-btn action-btn--primary" @click="handleTogglePlay">
 						<image class="action-icon" :src="playing ? icons.pause : icons.play" mode="aspectFit" />
-						<text class="action-text">{{ playing ? 'Pause' : 'Play' }}</text>
+						<text class="action-text">{{ playing ? t('videoDetail.pause') : t('videoDetail.play') }}</text>
 					</view>
 					<view class="action-btn action-btn--outline" @click="handleDownload">
 						<image class="action-icon" :src="icons.download" mode="aspectFit" />
-						<text class="action-text action-text--gold">Download</text>
+						<text class="action-text action-text--gold">{{ t('videoDetail.download') }}</text>
 					</view>
 				</view>
 
 				<view class="tip-card">
 					<image class="tip-icon" :src="icons.info" mode="aspectFit" />
-					<text class="tip-text">Ensure a stable network when downloading. Some browsers require long-pressing the video to save it.</text>
+					<text class="tip-text">{{ t('videoDetail.downloadTip') }}</text>
 				</view>
 
 				<view class="bottom-space" />
@@ -88,12 +88,14 @@
 
 <script setup>
 import { ref, computed, getCurrentInstance, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { isFavorite, toggleFavorite } from '@/utils/favorites'
 import { getLookVideo, setLookVideo } from '@/utils/look-video'
 import { getLookMember, setLookMember } from '@/utils/look-member'
 import memberSheet from '@/components/member-sheet/index'
 
+const { t } = useI18n()
 const { proxy } = getCurrentInstance()
 const baseUrl = proxy.$baseUrl
 
@@ -235,14 +237,14 @@ const handleFavorite = () => {
 		play_url: detail.value.play_url
 	})
 	favorited.value = added
-	uni.showToast({ title: added ? 'Added to favorites' : 'Removed from favorites', icon: 'none' })
+	uni.showToast({ title: added ? t('common.addedToFavorites') : t('common.removedFromFavorites'), icon: 'none' })
 }
 
 const saveOnApp = (filePath) => {
 	uni.saveVideoToPhotosAlbum({
 		filePath,
-		success: () => uni.showToast({ title: 'Saved to album', icon: 'success' }),
-		fail: () => uni.showToast({ title: 'Save failed. Please check album permissions', icon: 'none' })
+		success: () => uni.showToast({ title: t('videoDetail.savedToAlbum'), icon: 'success' }),
+		fail: () => uni.showToast({ title: t('videoDetail.saveFailed'), icon: 'none' })
 	})
 }
 
@@ -254,13 +256,13 @@ const saveOnH5 = (url) => {
 	document.body.appendChild(link)
 	link.click()
 	document.body.removeChild(link)
-	uni.showToast({ title: 'Download started', icon: 'none' })
+	uni.showToast({ title: t('videoDetail.downloadStarted'), icon: 'none' })
 }
 
 const handleDownload = () => {
 	if (!detail.value.video || downloading.value) return
 	downloading.value = true
-	uni.showLoading({ title: 'Downloading...', mask: true })
+	uni.showLoading({ title: t('videoDetail.downloading'), mask: true })
 
 	// #ifdef H5
 	uni.hideLoading()
@@ -273,7 +275,7 @@ const handleDownload = () => {
 		url: detail.value.video,
 		success: (res) => {
 			if (res.statusCode !== 200) {
-				uni.showToast({ title: 'Download failed', icon: 'none' })
+				uni.showToast({ title: t('videoDetail.downloadFailed'), icon: 'none' })
 				return
 			}
 			// #ifdef APP-PLUS
@@ -283,12 +285,12 @@ const handleDownload = () => {
 			uni.openDocument({
 				filePath: res.tempFilePath,
 				showMenu: true,
-				fail: () => uni.showToast({ title: 'Failed to open file', icon: 'none' })
+				fail: () => uni.showToast({ title: t('videoDetail.failedToOpenFile'), icon: 'none' })
 			})
 			// #endif
 		},
 		fail: () => {
-			uni.showToast({ title: 'Download failed', icon: 'none' })
+			uni.showToast({ title: t('videoDetail.downloadFailed'), icon: 'none' })
 		},
 		complete: () => {
 			uni.hideLoading()

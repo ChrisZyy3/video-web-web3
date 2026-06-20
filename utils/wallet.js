@@ -1,3 +1,8 @@
+import i18n from '@/i18n'
+
+function t(key, params) {
+  return i18n.global.t(key, params)
+}
 
 /** 解析 URL / storage 中的钱包信息 */
 export function parseWalletInfo(options = {}) {
@@ -34,25 +39,25 @@ export function parseWalletInfo(options = {}) {
 export function getInnerTronWeb() {
     // 1. TronLink 官方插件/内置浏览器（优先级最高）
   if (window.tronWeb && window.tronWeb.ready) {
-    uni.showToast({ title: '检测到 TronLink 内置浏览器，正在使用内置 tronWeb', icon: 'none' })
+    uni.showToast({ title: t('wallet.tronlinkDetected'), icon: 'none' })
     return window.tronWeb;
   }
 
   // 2. TokenPocket TP钱包
   if (window.tokenpocket?.tron) {
-    uni.showToast({ title: '检测到 tokenpocket 内置浏览器，正在使用内置 TronWeb', icon: 'none' })
+    uni.showToast({ title: t('wallet.tokenpocketDetected'), icon: 'none' })
     return window.tokenpocket.tron.tronWeb;
   }
 
   // 3. BitGet（BitKeep）钱包内置浏览器
   if (window.bitkeep?.tron?.tronWeb) {
-    uni.showToast({ title: '检测到 bitkeep 内置浏览器，正在使用内置 TronWeb', icon: 'none' })
+    uni.showToast({ title: t('wallet.bitkeepDetected'), icon: 'none' })
     return window.bitkeep.tron.tronWeb;
   }
 
   // 4. imToken 内置浏览器波场实例
   if (window.imToken?.tronWeb) {
-    uni.showToast({ title: '检测到 imToken 内置浏览器，正在使用内置 TronWeb', icon: 'none' })
+    uni.showToast({ title: t('wallet.imtokenDetected'), icon: 'none' })
     return window.imToken.tronWeb;
   }
   // 无内置注入，返回null，走跳转/扫码流程
@@ -85,8 +90,8 @@ export async function waitForInnerTronWeb(timeout = 10000) {
         }
         await new Promise((resolve) => setTimeout(resolve, 200))
     }
-    uni.showToast({ title: '未检测到 TRON 钱包，请在 TokenPocket / TronLink 中打开', icon: 'none' })
-    throw new Error('未检测到 TRON 钱包，请在 TokenPocket / TronLink 中打开')
+    uni.showToast({ title: t('wallet.noWallet'), icon: 'none' })
+    throw new Error(t('wallet.noWallet'))
 }
 
 /** 是否已在钱包内置浏览器中 */
@@ -132,7 +137,7 @@ export async function fetchAccountResources(tronWeb, address) {
 			bandwidth: net + freeNet
 		}
 	} catch (e) {
-        uni.showToast({ title: '获取账户资源失败，默认使用0', icon: 'none' })
+        uni.showToast({ title: t('wallet.resourcesFailed'), icon: 'none' })
 		console.warn('获取账户资源失败', e)
 		return { energy: 0, bandwidth: 0 }
 	}

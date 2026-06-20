@@ -1,4 +1,10 @@
+import i18n from '@/i18n'
+
 const STORAGE_KEY = 'favoriteVideos'
+
+function t(key) {
+  return i18n.global.t(key)
+}
 
 export function getFavorites() {
 	return uni.getStorageSync(STORAGE_KEY) || []
@@ -21,7 +27,7 @@ export function toggleFavorite(video) {
 		views: video.views,
 		video: video.video,
 		cover: video.cover,
-		title: video.title || video.description || 'Content',
+		title: video.title || video.description || t('common.content'),
 		description: video.description || '',
 		play_url: video.play_url || ''
 	})

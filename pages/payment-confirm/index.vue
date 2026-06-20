@@ -4,7 +4,7 @@
       <scroll-view class="scroll-body" scroll-y :style="{ height: scrollHeight + 'px' }">
         <view class="content">
           <view class="page-header">
-            <text class="page-title">Confirm Payment</text>
+            <text class="page-title">{{ t('payment.confirmTitle') }}</text>
             <view class="countdown-row">
               <image class="countdown-icon" :src="icons.clock" mode="aspectFit" />
               <text class="countdown-value">{{ countdown }}</text>
@@ -18,7 +18,7 @@
                 <view class="wallet-icon-wrap">
                 	<image class="wallet-icon" :src="icons.wallet" mode="aspectFit" />
                 </view>
-                <text class="wallet-head-title">Wallet Connection</text>
+                <text class="wallet-head-title">{{ t('payment.walletConnection') }}</text>
                 <view class="wallet-tag">
                   <text class="wallet-tag-text">{{ walletType.name }}</text>
                 </view>
@@ -29,15 +29,15 @@
             </view>
             <view class="wallet-balances">
               <view class="balance-item">
-                <text class="balance-label">USDT Balance</text>
+                <text class="balance-label">{{ t('payment.usdtBalance') }}</text>
                 <text class="balance-value balance-value--green">{{ wallet.usdt }} USDT</text>
               </view>
               <view class="balance-item">
-                <text class="balance-label">TRX Balance</text>
+                <text class="balance-label">{{ t('payment.trxBalance') }}</text>
                 <text class="balance-value balance-value--blue">{{ wallet.trx }} TRX</text>
               </view>
               <view class="balance-item balance-item--addr">
-                <text class="balance-label">Address</text>
+                <text class="balance-label">{{ t('payment.address') }}</text>
                 <text class="balance-addr">{{ wallet.addressShort }}</text>
               </view>
             </view>
@@ -45,9 +45,9 @@
 
           <view class="card contract-card">
             <view class="contract-head">
-              <text class="contract-desc">Contract address for payment. Do not transfer directly to this address — tap Pay below to start. (TRC20)</text>
+              <text class="contract-desc">{{ t('payment.contractDesc') }}</text>
               <view class="verified-tag">
-                <text class="verified-text">Verified</text>
+                <text class="verified-text">{{ t('payment.verified') }}</text>
               </view>
             </view>
             <text class="contract-addr">{{ contractAddress }}</text>
@@ -59,11 +59,11 @@
                 <view class="fee-icon-wrap">
                   <image class="fee-icon" :src="icons.gas" mode="aspectFit" />
                 </view>
-                <text class="fee-title">Estimated Network Fee</text>
+                <text class="fee-title">{{ t('payment.estimatedNetworkFee') }}</text>
               </view>
               <view class="fee-head-right">
                 <text class="fee-amount">~{{ minerFeeTrx }} TRX</text>
-                <text class="fee-update">Updating live</text>
+                <text class="fee-update">{{ t('payment.updatingLive') }}</text>
               </view>
             </view>
             <view class="fee-options">
@@ -72,16 +72,16 @@
                 :class="{ 'fee-option--active': feeMode === 'resource' }"
                 @click="selectFeeMode('resource')"
               >
-                <text class="fee-option-label">Use Resources</text>
-                <text class="fee-option-value">Energy + Bandwidth</text>
+                <text class="fee-option-label">{{ t('payment.useResources') }}</text>
+                <text class="fee-option-value">{{ t('payment.energyBandwidth') }}</text>
               </view>
               <view
                 class="fee-option"
                 :class="{ 'fee-option--active': feeMode === 'burn' }"
                 @click="selectFeeMode('burn')"
               >
-                <text class="fee-option-label">Burn TRX</text>
-                <text class="fee-option-value">Burn TRX tokens</text>
+                <text class="fee-option-label">{{ t('payment.burnTrx') }}</text>
+                <text class="fee-option-value">{{ t('payment.burnTrxTokens') }}</text>
               </view>
             </view>
           </view>
@@ -108,6 +108,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { onLoad, onUnload, onShow } from '@dcloudio/uni-app'
 import {
   DEPOSIT_CONTRACT,
@@ -118,8 +119,11 @@ import {
   isOrderExpired,
   validatePaymentReadiness,
   parseMinerFeeTrx,
-  formatWalletFetchError
+  formatWalletFetchError,
+  waitForTronWeb
 } from '@/utils/tron-pay'
+
+const { t } = useI18n()
 
 // 布局相关
 const statusBarHeight = ref(0)
@@ -175,25 +179,17 @@ const warningValid = computed(() => {
 
 // 优化钱包状态文案
 const walletStatusText = computed(() => {
-  if (loadingBalance.value) return `Connecting`
-  if (walletReady.value) return `Connected`
-  return `Not connected`
+  if (loadingBalance.value) return t('payment.connecting')
+  if (walletReady.value) return t('payment.connected')
+  return t('payment.notConnected')
 })
 
-// 优化支付按钮文案
 const payBtnText = computed(() => {
-  if (paying.value) return 'Paying...'
-  if (!walletReady.value) return `Connect ${walletType.value.name}`
-  const orderAmt = order.value.total
-  if (feeMode.value === FEE_MODE.BURN) {
-    const fee = parseMinerFeeTrx(minerFeeTrx.value)
-    const totalNeeded = (parseFloat(orderAmt) + fee).toFixed(2)
-    return `Pay Now  →`
-  }
-  return `Pay Now  →`
+  if (paying.value) return t('payment.paying')
+  if (!walletReady.value) return t('payment.connectWallet', { wallet: walletType.value.name })
+  return t('payment.payNow')
 })
 
-// 优化警告文本
 const warningText = computed(() => {
   const fee = parseMinerFeeTrx(minerFeeTrx.value)
   const check = validatePaymentReadiness({
@@ -204,20 +200,30 @@ const warningText = computed(() => {
     resources: walletResources.value,
     minerFeeTrx: fee
   })
-  
+
   if (!check.ok) {
     return check.message
   }
-  
+
   if (feeMode.value === FEE_MODE.BURN) {
     const totalNeeded = (parseFloat(order.value.total || '0') + fee).toFixed(2)
-    return `「Burn TRX」 mode: order is paid in TRX. Ensure TRX balance ≥ ${totalNeeded} TRX (incl. ~${fee.toFixed(2)} TRX network fee), or the transaction will fail and cannot be reversed.`
+    return t('payment.warningBurnMode', {
+      total: totalNeeded,
+      fee: fee.toFixed(2)
+    })
   }
-  
+
   const { energy, bandwidth } = walletResources.value
-  const energyText = energy >= 120000 ? 'sufficient' : `insufficient (current ${energy}/need 120000)`
-  const bandwidthText = bandwidth >= 600 ? 'sufficient' : `insufficient (current ${bandwidth}/need 600)`
-  return `「Use Resources」 mode: order is paid in USDT; network fees are covered by energy and bandwidth first. Energy ${energyText}, bandwidth ${bandwidthText}. Switch to 「Burn TRX」 if resources are insufficient.`
+  const energyText = energy >= 120000
+    ? t('payment.resourceSufficient')
+    : t('payment.resourceInsufficient', { current: energy, needed: 120000 })
+  const bandwidthText = bandwidth >= 600
+    ? t('payment.resourceSufficient')
+    : t('payment.resourceInsufficient', { current: bandwidth, needed: 600 })
+  return t('payment.warningResourceMode', {
+    energyStatus: energyText,
+    bandwidthStatus: bandwidthText
+  })
 })
 
 // SVG图标生成（原有逻辑保留）
@@ -324,7 +330,7 @@ const updateCountdown = () => {
   countdown.value = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
   if (left <= 0 && timer) {
     clearInterval(timer)
-    uni.showToast({ title: 'Order expired. Please place a new order.', icon: 'none' })
+    uni.showToast({ title: t('common.orderExpired'), icon: 'none' })
     setTimeout(() => {
       uni.reLaunch({ url: '/pages/index/index' })
     }, 1500)
@@ -357,7 +363,7 @@ const handlePay = async () => {
   
   // 订单过期校验
   if (isOrderExpired(order.value)) {
-    uni.showToast({ title: 'Order expired. Please place a new order.', icon: 'none' })
+    uni.showToast({ title: t('common.orderExpired'), icon: 'none' })
     setTimeout(() => {
       uni.reLaunch({ url: '/pages/index/index' })
     }, 1500)
@@ -368,7 +374,7 @@ const handlePay = async () => {
   if (!walletReady.value) {
     await refreshBalances({ force: true })
     if (!walletReady.value) {
-      uni.showToast({ title: `Please open in ${walletType.value.name} built-in browser`, icon: 'none' })
+      uni.showToast({ title: t('payment.openInWalletBrowser', { wallet: walletType.value.name }), icon: 'none' })
       return
     }
   }
@@ -389,16 +395,16 @@ const handlePay = async () => {
 
   // 发起支付
   paying.value = true
-  uni.showLoading({ title: `Paying with ${feeMode.value === FEE_MODE.BURN ? 'TRX' : 'USDT'}...`, mask: true })
+  uni.showLoading({ title: t('payment.payingWith', { token: feeMode.value === FEE_MODE.BURN ? 'TRX' : 'USDT' }), mask: true })
   try {
     await payOrder(walletType.value.id, order.value.total, { feeMode: feeMode.value })
-    uni.showToast({ title: 'Payment successful', icon: 'success' })
+    uni.showToast({ title: t('common.paymentSuccess'), icon: 'success' })
     setTimeout(() => {
       uni.reLaunch({ url: '/pages/index/index' })
     }, 1200)
   } catch (error) {
     console.error('支付失败:', error)
-    uni.showToast({ title: error?.message || 'Payment failed', icon: 'none', duration: 3000 })
+    uni.showToast({ title: error?.message || t('common.paymentFailed'), icon: 'none', duration: 3000 })
   } finally {
     uni.hideLoading()
     paying.value = false
@@ -426,7 +432,7 @@ onLoad((options) => {
   loadFeeMode()
 
   if (isOrderExpired(order.value)) {
-    uni.showToast({ title: 'Order expired. Please place a new order.', icon: 'none' })
+    uni.showToast({ title: t('common.orderExpired'), icon: 'none' })
   }
 })
 

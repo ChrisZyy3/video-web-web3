@@ -32,8 +32,10 @@ app.$mount()
 
 // #ifdef VUE3
 import { createSSRApp } from 'vue'
+import i18n from '@/i18n'
 export function createApp() {
   const app = createSSRApp(App)
+  app.use(i18n)
   app.config.globalProperties.$http = http
   app.config.globalProperties.$baseUrl = baseUrl
   app.config.globalProperties.$web3 = web3

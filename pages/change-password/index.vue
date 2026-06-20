@@ -11,7 +11,7 @@
 
 			<view class="title-wrap">
 				<image class="title-wing" src="/static/images/title-wing.svg" mode="aspectFit" />
-				<text class="title-text">Change Password</text>
+				<text class="title-text">{{ t('changePassword.title') }}</text>
 				<image class="title-wing title-wing--right" src="/static/images/title-wing.svg" mode="aspectFit" />
 			</view>
 
@@ -20,7 +20,7 @@
 					<view class="input-icon-wrap">
 						<image class="input-icon" :src="icons.id" mode="aspectFit" />
 					</view>
-					<text class="input-label">ID</text>
+					<text class="input-label">{{ t('changePassword.id') }}</text>
 					<text class="input-readonly">{{ userId }}</text>
 				</view>
 
@@ -28,12 +28,12 @@
 					<view class="input-icon-wrap">
 						<image class="input-icon" :src="icons.user" mode="aspectFit" />
 					</view>
-					<text class="input-label">Account</text>
+					<text class="input-label">{{ t('changePassword.account') }}</text>
 					<input
 						v-model="account"
 						class="input-field"
 						type="text"
-						placeholder="Enter new account"
+						:placeholder="t('changePassword.accountPlaceholder')"
 						placeholder-class="input-placeholder"
 						confirm-type="next"
 					/>
@@ -43,12 +43,12 @@
 					<view class="input-icon-wrap">
 						<image class="input-icon" :src="icons.lock" mode="aspectFit" />
 					</view>
-					<text class="input-label">Password</text>
+					<text class="input-label">{{ t('changePassword.password') }}</text>
 					<input
 						v-model="password"
 						class="input-field"
 						type="password"
-						placeholder="6+ characters, case-sensitive"
+						:placeholder="t('changePassword.passwordPlaceholder')"
 						placeholder-class="input-placeholder"
 						confirm-type="done"
 					/>
@@ -59,7 +59,7 @@
 
 			<view class="btn-group btn-group--single">
 				<view class="btn-gold" @click="handleSave">
-					<text class="btn-gold-text">Save</text>
+					<text class="btn-gold-text">{{ t('changePassword.save') }}</text>
 				</view>
 			</view>
 		</view>
@@ -68,7 +68,10 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { formIcons } from '@/utils/form-icons'
+
+const { t } = useI18n()
 
 const statusBarHeight = ref(0)
 const userId = ref('2607')
@@ -91,15 +94,15 @@ const handleBack = () => {
 
 const handleSave = () => {
 	if (!account.value.trim()) {
-		uni.showToast({ title: 'Please enter a new account', icon: 'none' })
+		uni.showToast({ title: t('changePassword.enterAccount'), icon: 'none' })
 		return
 	}
 	if (!password.value.trim()) {
-		uni.showToast({ title: 'Please enter your password', icon: 'none' })
+		uni.showToast({ title: t('changePassword.enterPassword'), icon: 'none' })
 		return
 	}
 	uni.setStorageSync('token', account.value)
-	uni.showToast({ title: 'Saved successfully', icon: 'success' })
+	uni.showToast({ title: t('changePassword.saved'), icon: 'success' })
 	setTimeout(() => {
 		uni.navigateBack({
 			fail: () => {

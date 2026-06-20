@@ -9,25 +9,29 @@
 				<text class="intro-badge-text">VIP</text>
 			</view> -->
 
-			<text class="intro-title">Membership</text>
-			<text class="intro-slogan">Recharge to watch all videos for free</text>
+			<text class="intro-title">{{ t('memberIntro.title') }}</text>
+			<text class="intro-slogan">{{ t('memberIntro.slogan') }}</text>
 
 			<view class="intro-list">
-				<text class="intro-item">· Unlock unlimited access to all videos</text>
-				<text class="intro-item">· New users can try 2 videos for free first</text>
+				<text class="intro-item">{{ t('memberIntro.benefit2') }}</text>
+				<text class="intro-item">{{ t('memberIntro.benefit1') }}</text>
 			</view>
 
 			<view class="intro-submit" @click="handleConfirm">
-				<text class="intro-submit-text">Recharge Now</text>
+				<text class="intro-submit-text">{{ t('memberIntro.rechargeNow') }}</text>
 			</view>
 			<view class="intro-later" @click="handleClose">
-				<text class="intro-later-text">Maybe Later</text>
+				<text class="intro-later-text">{{ t('memberIntro.maybeLater') }}</text>
 			</view>
 		</view>
 	</view>
 </template>
 
 <script setup>
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
 defineProps({
 	visible: { type: Boolean, default: false }
 })

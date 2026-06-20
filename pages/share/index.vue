@@ -1,14 +1,17 @@
 <template>
 	<view class="page">
 		<view class="page-content">
-			<text class="page-title">Share</text>
+			<text class="page-title">{{ t('share.title') }}</text>
 		</view>
 		<tabbar />
 	</view>
 </template>
 
 <script setup>
+import { useI18n } from 'vue-i18n'
 import tabbar from '@/components/tabbar/index'
+
+const { t } = useI18n()
 </script>
 
 <style>

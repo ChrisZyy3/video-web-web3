@@ -10,20 +10,20 @@
             <image class="brand-logo-img" :src="icons.logo" mode="aspectFit" />
           </view>
           <view class="brand-text">
-            <text class="brand-title">Media</text>
-            <text class="brand-subtitle">Discover More</text>
+            <text class="brand-title">{{ t('index.brandTitle') }}</text>
+            <text class="brand-subtitle">{{ t('index.brandSubtitle') }}</text>
           </view>
-          <view class="header-right" @click="removeLook">
-          </view>
+          
         </view>
-
+        <view class="header-right" @click="removeLook">
+        </view>
        <view class="header-search">
           <image class="search-icon" :src="icons.search" mode="aspectFit" />
           <input
             v-model="Keywords"
             class="search-input"
             type="text"
-            placeholder="Keywords"
+            :placeholder="t('index.keywordsPlaceholder')"
             placeholder-class="search-placeholder"
             @input="inputKeywords"
           />
@@ -69,7 +69,7 @@
       <!-- 热门电影 -->
       <view class="section-wrap">
         <view class="section-title">
-          <text class="section-title-text">🔥 Hot Movies 🔥</text>
+          <text class="section-title-text">{{ t('index.hotMovies') }}</text>
         </view>
         <view class="section-sub">
          <!-- <view class="section-sub-side" />
@@ -124,7 +124,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, getCurrentInstance } from 'vue'
+import { ref, computed, onMounted, getCurrentInstance } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { onShow } from '@dcloudio/uni-app'
 import tabbar from '@/components/tabbar/index'
 import videoCard from '@/components/video-card/index'
@@ -134,6 +135,7 @@ import { getFavorites, toggleFavorite } from '@/utils/favorites'
 import { getLookVideo, setLookVideo, removeLookVideo } from '@/utils/look-video'
 import { getLookMember, setLookMember } from '@/utils/look-member'
 
+const { t } = useI18n()
 const { proxy } = getCurrentInstance()
 const baseUrl = proxy.$baseUrl
 
@@ -147,11 +149,8 @@ const showMemberIntro = ref(false)
 const showMemberSheet = ref(false)
 
 const COVER_SRC = '/static/images/video-cover.png'
-const noticeText = [
-	'1. New users can watch 2 videos for free!',
-	'2. Become a member to watch all videos!'
-]
-const noticeDuration = Math.max(14, noticeText.length * 0.32)
+const noticeText = computed(() => [t('index.notice1'), t('index.notice2')])
+const noticeDuration = computed(() => Math.max(14, noticeText.value.length * 0.32))
 
 const categories = Array.from({ length: 24 }, (_, i) => ({
   id: i + 1,
@@ -206,12 +205,12 @@ const handleFavorite = (item) => {
   const added = toggleFavorite(item)
   if (added) {
     favoriteMap.value = { ...favoriteMap.value, [item.id]: true }
-    uni.showToast({ title: 'Added to favorites', icon: 'none' })
+    uni.showToast({ title: t('common.addedToFavorites'), icon: 'none' })
   } else {
     const next = { ...favoriteMap.value }
     delete next[item.id]
     favoriteMap.value = next
-    uni.showToast({ title: 'Removed from favorites', icon: 'none' })
+    uni.showToast({ title: t('common.removedFromFavorites'), icon: 'none' })
   }
 }
 
@@ -241,7 +240,7 @@ const calcLayout = () => {
 }
 
 const handleMenu = () => {
-  uni.showToast({ title: 'Menu', icon: 'none' })
+  uni.showToast({ title: t('index.menu'), icon: 'none' })
 }
 
 const handleCategory = (item) => {
@@ -255,7 +254,7 @@ const handleAllCategories = () => {
 }
 
 const handleMore = () => {
-  uni.showToast({ title: 'More', icon: 'none' })
+  uni.showToast({ title: t('index.more'), icon: 'none' })
 }
 
 const pauseListVideos = () => {
@@ -272,20 +271,13 @@ const pauseListVideos = () => {
 
 const goVideoDetail = (item) => {
 	const lookList = getLookVideo()
-	if(lookList.length==2&&!getLookMember()){
-		showMemberIntro.value = true
-		return
-	}
-  // pauseListVideos()
-  // uni.setStorageSync('videoDetailCache', {
-  //   id: item.id,
-  //   title: item.description || item.title || '内容',
-  //   description: item.description || '',
-  //   views: item.views || 0,
-  //   play_url: item.play_url || '',
-  //   video: item.video || getVideoUrl(item),
-  //   cover: item.cover || COVER_SRC
-  // })
+  const index = lookList.findIndex(x => x.id === item.id)
+  if(index==-1){
+    if(lookList.length>1&&!getLookMember()){
+      showMemberIntro.value = true
+      return
+    }
+  }
   uni.navigateTo({ url: `/pages/video-detail/index?id=${item.id}` })
 }
 
@@ -399,7 +391,7 @@ onShow(() => {
 
 
 .header-right{
-  flex: 1;
+  flex: 0 0 50rpx;
   height: 72rpx;
   display: flex;
   flex-direction: row;
