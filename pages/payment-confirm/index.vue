@@ -62,18 +62,17 @@
                 <text class="fee-title">{{ t('payment.estimatedNetworkFee') }}</text>
               </view>
               <view class="fee-head-right">
-                <text class="fee-amount" :class="{ 'fee-amount--loading': loadingMinerFee }">
-                  {{ loadingMinerFee ? t('payment.feeCalculating') : `~${minerFeeTrx} TRX` }}
+                <text class="fee-amount" :class="{ 'fee-amount--loading': loadingBalance }">
+                  {{ loadingBalance ? t('payment.feeCalculating') : `~${minerFeeTrx} TRX` }}
                 </text>
-                <text class="fee-update">{{ loadingMinerFee ? t('payment.updatingFee') : t('payment.updatingLive') }}</text>
+                <text class="fee-update">{{ loadingBalance ? t('payment.updatingFee') : t('payment.updatingLive') }}</text>
               </view>
             </view>
             <view class="fee-options">
               <view
                 class="fee-option"
                 :class="{
-                  'fee-option--active': feeMode === 'resource',
-                  'fee-option--disabled': loadingMinerFee
+                  'fee-option--active': feeMode === 'resource'
                 }"
                 @click="selectFeeMode('resource')"
               >
@@ -83,8 +82,7 @@
               <view
                 class="fee-option"
                 :class="{
-                  'fee-option--active': feeMode === 'burn',
-                  'fee-option--disabled': loadingMinerFee
+                  'fee-option--active': feeMode === 'burn'
                 }"
                 @click="selectFeeMode('burn')"
               >
@@ -159,7 +157,6 @@ const walletReady = ref(false)
 const paying = ref(false)
 const paymentCompleted = ref(false)
 const loadingBalance = ref(false)
-const loadingMinerFee = ref(false)
 const contractAddress = DEPOSIT_CONTRACT
 const paymentReturnUrl = ref('')
 const walletType = ref({
@@ -270,27 +267,10 @@ const loadFeeMode = () => {
   feeMode.value = FEE_MODE.RESOURCE
 }
 
-// 选择支付方式：切换后重新估算网络费并展示加载状态
-const selectFeeMode = async (mode) => {
-  if (feeMode.value === mode || loadingMinerFee.value) return
+// 选择支付方式（展示矿工费固定为燃烧 TRX 估算，切换不重新拉取）
+const selectFeeMode = (mode) => {
+  if (feeMode.value === mode) return
   feeMode.value = mode
-  if (!walletReady.value) return
-
-  loadingMinerFee.value = true
-  uni.showLoading({ title: t('payment.updatingFee'), mask: true })
-  try {
-    const result = await refreshBalances({ force: true, silent: true })
-    if (!result?.ok) {
-      uni.showToast({
-        title: formatWalletFetchError(result?.error),
-        icon: 'none',
-        duration: 3000
-      })
-    }
-  } finally {
-    loadingMinerFee.value = false
-    uni.hideLoading()
-  }
 }
 
 // 刷新余额与矿工费（合并为单次链上请求）
@@ -309,7 +289,8 @@ const refreshBalances = async ({ force = false, silent = false } = {}) => {
   const ownsLoading = !loadingBalance.value
   if (ownsLoading) loadingBalance.value = true
   try {
-    const balances = await fetchWalletBalances(walletType.value.id, feeMode.value, order.value.total)
+    // 展示矿工费固定按右侧「燃烧 TRX」模式估算，与当前选中的支付方式无关
+    const balances = await fetchWalletBalances(walletType.value.id, FEE_MODE.BURN, order.value.total)
     const { resources, minerFee: feeInfo, ...balanceFields } = balances
     wallet.value = balanceFields
     walletResources.value = resources || { energy: 0, bandwidth: 0 }
