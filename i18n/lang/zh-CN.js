@@ -23,6 +23,8 @@ export default {
     verified: '已验证',
     estimatedNetworkFee: '预估网络费',
     updatingLive: '实时更新',
+    updatingFee: '正在更新预估费用...',
+    feeCalculating: '计算中...',
     useResources: '使用资源',
     energyBandwidth: '能量 + 带宽',
     burnTrx: '燃烧 TRX',

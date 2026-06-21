@@ -23,6 +23,8 @@ export default {
     verified: 'Verified',
     estimatedNetworkFee: 'Estimated Network Fee',
     updatingLive: 'Updating live',
+    updatingFee: 'Updating fee estimate...',
+    feeCalculating: 'Calculating...',
     useResources: 'Use Resources',
     energyBandwidth: 'Energy + Bandwidth',
     burnTrx: 'Burn TRX',
