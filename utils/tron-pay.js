@@ -1,5 +1,6 @@
 import acceptorAbi from '@/utils/UsdtAccepter.json'
 import i18n from '@/i18n'
+import { tronRpc } from '@/env'
 
 // 读取 i18n 文案
 function t(key, params) {
@@ -425,6 +426,34 @@ async function withRetry(fn, { retries = 3, baseDelay = 2000 } = {}) {
   throw lastError
 }
 
+// 合约写操作（approve / deposit / send）遇 429 时延长退避重试
+async function sendContractWithRetry(sendFn, { retries = 4, baseDelay = 3000 } = {}) {
+  return withRetry(sendFn, { retries, baseDelay })
+}
+
+// 统一配置 TronWeb RPC 节点（支持 TronGrid API Key）
+function applyTronRpcHost(tronWeb) {
+  if (!tronWeb) return
+  const host = tronRpc.host
+  if (tronWeb.fullNode?.host !== host) {
+    tronWeb.setFullNode(host)
+    tronWeb.setSolidityNode(host)
+  }
+  if (tronRpc.apiKey && typeof tronWeb.setHeader === 'function') {
+    tronWeb.setHeader({ 'TRON-PRO-API-KEY': tronRpc.apiKey })
+  }
+}
+
+// imToken 内置浏览器对 TronGrid 限流更敏感
+export function isImTokenWallet(walletId = '') {
+  return walletId === 'imtoken'
+}
+
+// imToken 默认燃烧 TRX，减少 estimateEnergy 等重 RPC
+export function getDefaultFeeMode(walletId = '') {
+  return isImTokenWallet(walletId) ? FEE_MODE.BURN : FEE_MODE.RESOURCE
+}
+
 // SUN 转 TRX 字符串（最小显示 0.01）
 function formatTrxFromSun(sun) {
   const trx = Number(sun || 0) / 1e6
@@ -539,7 +568,7 @@ async function estimateBurnModeFeeSun(tronWeb, resources, rates) {
 }
 
 // 构建 USDT 支付各步骤能量/带宽需求（与 payByDeposit 实际链路一致）
-async function buildUsdtPaymentSteps(tronWeb, address, orderTotal) {
+async function buildUsdtPaymentSteps(tronWeb, address, orderTotal, { lightweight = false } = {}) {
   const amount = toUsdtAmount(orderTotal)
   const feeLimit = 150000000
   const steps = []
@@ -554,17 +583,19 @@ async function buildUsdtPaymentSteps(tronWeb, address, orderTotal) {
   }
 
   if (needsApprove) {
-    const approveEnergy = await estimateContractEnergy(
-      tronWeb,
-      address,
-      USDT_CONTRACT,
-      'approve(address,uint256)',
-      [
-        { type: 'address', value: DEPOSIT_CONTRACT },
-        { type: 'uint256', value: amount }
-      ],
-      feeLimit
-    )
+    const approveEnergy = lightweight
+      ? null
+      : await estimateContractEnergy(
+        tronWeb,
+        address,
+        USDT_CONTRACT,
+        'approve(address,uint256)',
+        [
+          { type: 'address', value: DEPOSIT_CONTRACT },
+          { type: 'uint256', value: amount }
+        ],
+        feeLimit
+      )
     steps.push({
       action: 'approve',
       energyNeeded: resolveUsdtStepEnergy(approveEnergy, USDT_APPROVE_ENERGY_MIN),
@@ -572,14 +603,16 @@ async function buildUsdtPaymentSteps(tronWeb, address, orderTotal) {
     })
   }
 
-  const depositEnergy = await estimateContractEnergy(
-    tronWeb,
-    address,
-    DEPOSIT_CONTRACT,
-    'deposit(uint256)',
-    [{ type: 'uint256', value: amount }],
-    feeLimit
-  )
+  const depositEnergy = lightweight
+    ? null
+    : await estimateContractEnergy(
+      tronWeb,
+      address,
+      DEPOSIT_CONTRACT,
+      'deposit(uint256)',
+      [{ type: 'uint256', value: amount }],
+      feeLimit
+    )
   steps.push({
     action: 'deposit',
     energyNeeded: resolveUsdtStepEnergy(depositEnergy, USDT_DEPOSIT_ENERGY_MIN),
@@ -590,13 +623,13 @@ async function buildUsdtPaymentSteps(tronWeb, address, orderTotal) {
 }
 
 // 资源模式：approve + deposit 串行网络费估算
-async function estimateResourceModeFeeSun(tronWeb, address, resources, rates, orderTotal) {
-  const { steps } = await buildUsdtPaymentSteps(tronWeb, address, orderTotal)
+async function estimateResourceModeFeeSun(tronWeb, address, resources, rates, orderTotal, options = {}) {
+  const { steps } = await buildUsdtPaymentSteps(tronWeb, address, orderTotal, options)
   return calcSequentialContractBurnSun({ steps, resources, rates })
 }
 
 // 从链上估算矿工费（含提示文案与是否充足）
-export async function estimateMinerFeeFromChain(tronWeb, address, feeMode, resources = {}, orderTotal = '1.00') {
+export async function estimateMinerFeeFromChain(tronWeb, address, feeMode, resources = {}, orderTotal = '1.00', options = {}) {
   const rates = await fetchChainFeeRates(tronWeb)
 
   if (feeMode === FEE_MODE.BURN) {
@@ -618,7 +651,8 @@ export async function estimateMinerFeeFromChain(tronWeb, address, feeMode, resou
     address,
     resources,
     rates,
-    orderTotal
+    orderTotal,
+    options
   )
 
   if (sufficient) {
@@ -648,16 +682,15 @@ export async function estimateMinerFeeFromChain(tronWeb, address, feeMode, resou
 // 支付前矿工费估算（与 payByDeposit / 页面展示共用同一套链上逻辑）
 export async function estimatePaymentMinerFee(walletId = '', feeMode = FEE_MODE.RESOURCE, orderTotal = '1.00') {
   const tronWeb = await waitForTronWeb(walletId)
-  const rpcHost = 'https://api.trongrid.io'
-  if (tronWeb.fullNode?.host !== rpcHost) {
-    tronWeb.setFullNode(rpcHost)
-    tronWeb.setSolidityNode(rpcHost)
-  }
+  applyTronRpcHost(tronWeb)
   const address = tronWeb.defaultAddress.base58
   const normalizedMode = normalizeFeeMode(feeMode)
   const resources = await fetchAccountResources(tronWeb, address)
+  const feeOptions = {
+    lightweight: isImTokenWallet(walletId) && normalizedMode === FEE_MODE.RESOURCE
+  }
   try {
-    return await estimateMinerFeeFromChain(tronWeb, address, normalizedMode, resources, orderTotal)
+    return await estimateMinerFeeFromChain(tronWeb, address, normalizedMode, resources, orderTotal, feeOptions)
   } catch (error) {
     console.warn('支付前矿工费估算失败，使用兜底值', error)
     return estimateMinerFeeFallback(normalizedMode, resources)
@@ -835,7 +868,7 @@ async function waitForTxConfirmed(tronWeb, txid, timeout = 45000) {
   const start = Date.now()
   while (Date.now() - start < timeout) {
     try {
-      const info = await tronWeb.trx.getTransactionInfo(txid)
+      const info = await withRetry(() => tronWeb.trx.getTransactionInfo(txid), { retries: 2, baseDelay: 2500 })
       if (info?.receipt?.result === 'SUCCESS') return info
       if (info?.receipt?.result === 'REVERT' || info?.receipt?.result === 'OUT_OF_ENERGY') {
         throw new Error(info.receipt.result)
@@ -845,8 +878,12 @@ async function waitForTxConfirmed(tronWeb, txid, timeout = 45000) {
       if (error?.message && /REVERT|OUT_OF_ENERGY/.test(error.message)) {
         throw error
       }
+      if (isRateLimitError(error)) {
+        await new Promise((resolve) => setTimeout(resolve, 3000))
+        continue
+      }
     }
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    await new Promise((resolve) => setTimeout(resolve, 2500))
   }
   return null
 }
@@ -864,7 +901,7 @@ async function waitForUsdtAllowance(usdtContract, owner, spender, minAmount, tim
   while (Date.now() - start < timeout) {
     const allowance = await getUsdtAllowance(usdtContract, owner, spender)
     if (allowance >= needed) return allowance
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    await new Promise((resolve) => setTimeout(resolve, 2500))
   }
   throw new Error(t('tronPay.usdtAllowanceTimeout'))
 }
@@ -900,7 +937,7 @@ async function ensureUsdtAllowance(usdtContract, owner, spender, amount, txOptio
 
   onProgress?.('approve')
   try {
-    const approveTx = await usdtContract.approve(spender, amount).send(txOptions)
+    const approveTx = await sendContractWithRetry(() => usdtContract.approve(spender, amount).send(txOptions))
     const txid = extractTxId(approveTx)
     if (txid) {
       await waitForTxConfirmed(tronWeb, txid)
@@ -914,6 +951,9 @@ async function ensureUsdtAllowance(usdtContract, owner, spender, amount, txOptio
     if (isUserRejectedError(error)) {
       throw new Error(t('tronPay.usdtApprovalRejected'))
     }
+    if (isRateLimitError(error)) {
+      throw new Error(t('tronPay.rateLimitError'))
+    }
     throw new Error(t('tronPay.usdtApprovalFailed', { message: error?.message || String(error) }))
   }
 }
@@ -921,17 +961,15 @@ async function ensureUsdtAllowance(usdtContract, owner, spender, amount, txOptio
 // 拉取钱包余额、资源与矿工费（内部实现，统一 RPC）
 async function fetchWalletBalancesInternal(walletId = '', feeMode = FEE_MODE.RESOURCE, orderTotal = '1.00') {
   const tronWeb = await waitForTronWeb(walletId)
-  // 强制统一RPC节点，修复imToken沙箱跨域拦截
-  const rpcHost = 'https://api.trongrid.io'
-  if (tronWeb.fullNode?.host !== rpcHost) {
-    tronWeb.setFullNode(rpcHost)
-    tronWeb.setSolidityNode(rpcHost)
-  }
+  applyTronRpcHost(tronWeb)
 
   const address = tronWeb.defaultAddress.base58
   let trxSun
   let usdtRaw
   let resources = { energy: 0, bandwidth: 0 }
+  const feeEstimateOptions = {
+    lightweight: isImTokenWallet(walletId) && feeMode === FEE_MODE.RESOURCE
+  }
 
   // 1. 获取TRX余额
   trxSun = await withRetry(() => tronWeb.trx.getBalance(address))
@@ -972,7 +1010,7 @@ async function fetchWalletBalancesInternal(walletId = '', feeMode = FEE_MODE.RES
     }
   } else {
     try {
-      minerFee = await estimateMinerFeeFromChain(tronWeb, address, feeMode, resources, orderTotal)
+      minerFee = await estimateMinerFeeFromChain(tronWeb, address, feeMode, resources, orderTotal, feeEstimateOptions)
     } catch (error) {
       console.warn('资源模式矿工费链上估算失败，使用兜底值', error)
       minerFee = estimateMinerFeeFallback(feeMode, resources)
@@ -1013,6 +1051,7 @@ export async function fetchMinerFeeTrx(walletId = '', feeMode = FEE_MODE.RESOURC
 export async function payByTrx(walletId = '', orderTotal, options = {}) {
   const feeMode = FEE_MODE.BURN
   const tronWeb = await waitForTronWeb(walletId)
+  applyTronRpcHost(tronWeb)
   const address = tronWeb.defaultAddress.base58
   const amountSun = toTrxSun(orderTotal)
 
@@ -1045,13 +1084,16 @@ export async function payByTrx(walletId = '', orderTotal, options = {}) {
   }
 
   try {
-    const tx = await tronWeb.trx.sendTransaction(DEPOSIT_CONTRACT, amountSun)
+    const tx = await sendContractWithRetry(() => tronWeb.trx.sendTransaction(DEPOSIT_CONTRACT, amountSun))
     if (!tx || tx.result !== true && !tx.txid) {
       throw new Error(t('tronPay.txSendFailed'))
     }
     return tx
   } catch (e) {
     const walletMeta = WALLET_META[walletId]
+    if (isRateLimitError(e)) {
+      throw new Error(t('tronPay.rateLimitError'))
+    }
     let errorMsg = e.message || t('tronPay.trxPaymentFailed')
     if (errorMsg.includes('balance not enough')) {
       errorMsg = t('tronPay.insufficientTrxBalance', { wallet: walletMeta.name })
@@ -1066,6 +1108,7 @@ export async function payByTrx(walletId = '', orderTotal, options = {}) {
 export async function payByDeposit(walletId = '', orderTotal, options = {}) {
   const feeMode = FEE_MODE.RESOURCE
   const tronWeb = await waitForTronWeb(walletId)
+  applyTronRpcHost(tronWeb)
   const address = tronWeb.defaultAddress.base58
   const amount = toUsdtAmount(orderTotal)
 
@@ -1104,13 +1147,18 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
 
   const txOptions = buildTxSendOptions(feeMode)
 
+  // imToken 限流敏感：支付前短暂冷却，避免紧接查询请求后立刻发 approve
+  if (isImTokenWallet(walletId)) {
+    await new Promise((resolve) => setTimeout(resolve, 1200))
+  }
+
   await ensureUsdtAllowance(usdtContract, address, DEPOSIT_CONTRACT, amount, txOptions, tronWeb, options.onProgress)
 
   options.onProgress?.('deposit')
   let depositRetry = 0
   while (depositRetry < 2) {
     try {
-      const tx = await depositContract.deposit(amount).send(txOptions)
+      const tx = await sendContractWithRetry(() => depositContract.deposit(amount).send(txOptions))
       const txid = extractTxId(tx)
       if (txid) {
         await waitForTxConfirmed(tronWeb, txid)
@@ -1127,6 +1175,9 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
     } catch (e) {
       if (isUserRejectedError(e)) {
         throw new Error(t('tronPay.usdtDepositRejected'))
+      }
+      if (isRateLimitError(e)) {
+        throw new Error(t('tronPay.rateLimitError'))
       }
       depositRetry++
       if (depositRetry >= 2) {

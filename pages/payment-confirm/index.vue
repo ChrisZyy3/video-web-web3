@@ -132,7 +132,9 @@ import {
   normalizeFeeMode,
   parsePaymentReturnUrl,
   redirectAfterPaymentSuccess,
-  markOrderPaymentCompleted
+  markOrderPaymentCompleted,
+  getDefaultFeeMode,
+  isImTokenWallet
 } from '@/utils/tron-pay'
 
 const { t } = useI18n()
@@ -177,7 +179,9 @@ const wallet = ref({
 let timer = null
 let balanceTimer = null
 
-const BALANCE_REFRESH_INTERVAL =  walletType.value.id === 'imtoken' ? 45000 : 30000
+const BALANCE_REFRESH_INTERVAL = 30000
+const IMTOKEN_REFRESH_INTERVAL = 120000
+const IMTOKEN_SHOW_REFRESH_GAP = 30000
 let lastBalanceRefreshAt = 0
 
 // 【新增】警告信息有效性（用于禁用支付按钮）
@@ -297,9 +301,9 @@ const startCountdownTimer = () => {
   timer = setInterval(updateCountdown, 1000)
 }
 
-// 默认使用左侧「能量/带宽」选项（每次进入支付页重置，不读取历史选择）
+// 默认手续费模式：imToken 默认右侧「燃烧 TRX」减少 RPC；其他钱包默认左侧「使用资源」
 const loadFeeMode = () => {
-  feeMode.value = FEE_MODE.RESOURCE
+  feeMode.value = getDefaultFeeMode(walletType.value.id)
 }
 
 // 选择支付方式：切换后重新估算网络费并展示加载状态
@@ -333,7 +337,8 @@ const refreshBalances = async ({ force = false, silent = false } = {}) => {
   if (loadingBalance.value && !force) return
 
   const now = Date.now()
-  if (!force && walletReady.value && now - lastBalanceRefreshAt < BALANCE_REFRESH_INTERVAL) {
+  const refreshGap = isImTokenWallet(walletType.value.id) ? IMTOKEN_REFRESH_INTERVAL : BALANCE_REFRESH_INTERVAL
+  if (!force && walletReady.value && now - lastBalanceRefreshAt < refreshGap) {
     return
   }
 
@@ -393,6 +398,12 @@ const handleClose = () => {
 
 // 支付前同步矿工费（与 payByDeposit 内部估算保持一致）
 const syncMinerFeeBeforePay = async () => {
+  const imtoken = isImTokenWallet(walletType.value.id)
+  const recentlyRefreshed = Date.now() - lastBalanceRefreshAt < 15000
+  if (imtoken && recentlyRefreshed) return
+  if (imtoken) {
+    await new Promise((resolve) => setTimeout(resolve, 800))
+  }
   await refreshBalances({ force: true })
 }
 
@@ -503,7 +514,9 @@ onShow(async () => {
   if (walletType.value.id === 'imtoken') {
     await new Promise(r => setTimeout(r, 800))
   }
-  if (walletReady.value) {
+  const imtoken = isImTokenWallet(walletType.value.id)
+  const gapSinceRefresh = Date.now() - lastBalanceRefreshAt
+  if (walletReady.value && (!imtoken || gapSinceRefresh >= IMTOKEN_SHOW_REFRESH_GAP)) {
     refreshBalances({ silent: true })
   }
 })
@@ -511,15 +524,14 @@ onShow(async () => {
 onMounted(async () => {
   calcLayout()
 
-  // imToken 页面加载延迟2.5秒再请求余额，避免刚打开就发RPC被拦截
+  // imToken 延迟拉取余额，降低 TronGrid 429 概率
   if (walletType.value.id === 'imtoken') {
-    setTimeout(() => refreshBalances({ force: true }), 2500)
+    setTimeout(() => refreshBalances({ force: true }), 3500)
   } else {
     refreshBalances({ force: true })
   }
 
-  // imToken 45秒刷新一次，普通钱包30秒
-  const interval = walletType.value.id === 'imtoken' ? 45000 : BALANCE_REFRESH_INTERVAL
+  const interval = isImTokenWallet(walletType.value.id) ? IMTOKEN_REFRESH_INTERVAL : BALANCE_REFRESH_INTERVAL
   balanceTimer = setInterval(() => refreshBalances({ silent: true }), interval)
 })
 
