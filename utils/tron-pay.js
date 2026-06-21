@@ -993,11 +993,13 @@ async function waitForUsdtAllowance(usdtContract, owner, spender, minAmount, { t
   const needed = BigInt(minAmount)
   const start = Date.now()
   let attempt = 0
-  const maxAttempts = lightweight ? 3 : (fastPoll ? 5 : Infinity)
+  const maxAttempts = lightweight
+    ? (isImTokenWallet(walletId) ? 4 : 3)
+    : (fastPoll ? 5 : Infinity)
 
-  // 限流敏感钱包：先等 approve 上链，再少量查询 allowance，避免 deposit 时 InsufficientAllowance
+  // 限流敏感钱包：先等 approve 上链，再少量查询 allowance
   if (lightweight) {
-    await new Promise((resolve) => setTimeout(resolve, 1200))
+    await new Promise((resolve) => setTimeout(resolve, isImTokenWallet(walletId) ? 2500 : 1200))
   }
 
   while (Date.now() - start < timeout && attempt < maxAttempts) {
@@ -1029,6 +1031,24 @@ async function waitForUsdtAllowance(usdtContract, owner, spender, minAmount, { t
   }
 
   throw new Error(t('tronPay.usdtAllowanceTimeout'))
+}
+
+function isAllowanceTimeoutError(error) {
+  return error?.message === t('tronPay.usdtAllowanceTimeout')
+}
+
+// approve 已签名提交后：allowance 轮询失败时（429/超时）限流敏感钱包仍继续 deposit
+async function waitForUsdtAllowanceAfterApprove(usdtContract, owner, spender, amount, opts) {
+  try {
+    await waitForUsdtAllowance(usdtContract, owner, spender, amount, opts)
+  } catch (error) {
+    if (isRateLimitSensitiveWallet(opts.walletId) && isAllowanceTimeoutError(error)) {
+      console.warn('allowance 轮询未确认，approve 已提交，等待后继续 deposit')
+      await new Promise((resolve) => setTimeout(resolve, 3000))
+      return
+    }
+    throw error
+  }
 }
 
 // 轮询 USDT 余额是否已扣减（TokenPocket 等签名后可能无 txid）
@@ -1097,7 +1117,9 @@ async function ensureUsdtAllowance(usdtContract, owner, spender, amount, txOptio
     onProgress?.('approveConfirming')
 
     if (signTimedOut) {
-      await waitForUsdtAllowance(usdtContract, owner, spender, amount, allowanceWaitOpts({ timeout: 25000 }))
+      await waitForUsdtAllowanceAfterApprove(
+        usdtContract, owner, spender, amount, allowanceWaitOpts({ timeout: 25000 })
+      )
       return true
     }
 
@@ -1105,7 +1127,9 @@ async function ensureUsdtAllowance(usdtContract, owner, spender, amount, txOptio
     const sendOk = isSendSuccessful(approveTx)
 
     if (sendOk && txid) {
-      await waitForUsdtAllowance(usdtContract, owner, spender, amount, allowanceWaitOpts({ timeout: 12000 }))
+      await waitForUsdtAllowanceAfterApprove(
+        usdtContract, owner, spender, amount, allowanceWaitOpts({ timeout: 15000 })
+      )
       return true
     }
 
@@ -1115,7 +1139,9 @@ async function ensureUsdtAllowance(usdtContract, owner, spender, amount, txOptio
       console.warn('approve 返回无 txid，等待链上 allowance 生效')
     }
 
-    await waitForUsdtAllowance(usdtContract, owner, spender, amount, allowanceWaitOpts())
+    await waitForUsdtAllowanceAfterApprove(
+      usdtContract, owner, spender, amount, allowanceWaitOpts()
+    )
     return true
   } catch (error) {
     if (isUserRejectedError(error)) {
@@ -1125,6 +1151,9 @@ async function ensureUsdtAllowance(usdtContract, owner, spender, amount, txOptio
       throw new Error(t('tronPay.rateLimitError'))
     }
     if (error?.message === t('tronPay.usdtApprovalSignTimeout')) {
+      throw error
+    }
+    if (isAllowanceTimeoutError(error)) {
       throw error
     }
     throw new Error(t('tronPay.usdtApprovalFailed', { message: error?.message || String(error) }))
