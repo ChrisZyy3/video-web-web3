@@ -365,7 +365,7 @@ const handleClose = () => {
 // 支付前同步矿工费（与 payByDeposit 内部估算保持一致）
 const syncMinerFeeBeforePay = async () => {
   const throttled = isRateLimitSensitiveWallet(walletType.value.id)
-  const recentlyRefreshed = Date.now() - lastBalanceRefreshAt < 15000
+  const recentlyRefreshed = Date.now() - lastBalanceRefreshAt < 30000
   if (throttled && recentlyRefreshed) return
   if (throttled) {
     await new Promise((resolve) => setTimeout(resolve, 800))
@@ -441,7 +441,18 @@ const handlePay = async () => {
   try {
     await payOrder(walletType.value.id, order.value.total, {
       feeMode: normalizeFeeMode(feeMode.value),
-      onProgress: updatePayLoading
+      onProgress: updatePayLoading,
+      onBeforeWalletSign: () => uni.hideLoading(),
+      onAfterWalletSign: (stage) => {
+        if (stage) updatePayLoading(stage)
+      },
+      paymentSnapshot: {
+        usdt: wallet.value.usdt,
+        trx: wallet.value.trx,
+        resources: { ...walletResources.value },
+        minerFeeTrx: parseMinerFeeTrx(minerFeeTrx.value),
+        refreshedAt: lastBalanceRefreshAt
+      }
     })
     paymentCompleted.value = true
     markOrderPaymentCompleted()

@@ -234,6 +234,8 @@ export default {
     txTimeout: '{wallet}：交易超时，请重试',
     usdtApprovalFailed: 'USDT 授权失败：{message}',
     usdtApprovalRejected: '已取消 USDT 授权',
+    usdtApprovalSignTimeout: 'USDT 授权响应超时。若已在 imToken 确认，请稍候再点支付（无需重复授权）',
+    usdtDepositSignTimeout: 'USDT 支付等待超时，请在钱包或 Tronscan 查看是否有待确认交易',
     usdtApprovalNoTxid: 'USDT 授权未返回交易 ID',
     usdtAllowanceTimeout: 'USDT 授权尚未生效，请稍后直接重试支付（无需重复授权）',
     usdtDepositRejected: '已取消 USDT 支付',

@@ -431,6 +431,52 @@ async function sendContractWithRetry(sendFn, { retries = 4, baseDelay = 3000 } =
   return withRetry(sendFn, { retries, baseDelay })
 }
 
+// 钱包签名阶段少重试，避免 429 时反复触发 send 加重限流
+async function sendWalletContract(sendFn, walletId = '') {
+  const retryOpts = isRateLimitSensitiveWallet(walletId)
+    ? { retries: 1, baseDelay: 5000 }
+    : { retries: 4, baseDelay: 3000 }
+  return sendContractWithRetry(sendFn, retryOpts)
+}
+
+const IMTOKEN_SIGN_TIMEOUT_MS = 180000
+const WALLET_SIGN_TIMEOUT_MS = 120000
+
+function getWalletSignTimeoutMs(walletId = '') {
+  if (isImTokenWallet(walletId)) return IMTOKEN_SIGN_TIMEOUT_MS
+  if (isRateLimitSensitiveWallet(walletId)) return WALLET_SIGN_TIMEOUT_MS
+  return 120000
+}
+
+function canUsePaymentSnapshot(walletId = '', snapshot) {
+  if (!snapshot?.refreshedAt || !isRateLimitSensitiveWallet(walletId)) return false
+  return Date.now() - Number(snapshot.refreshedAt) < 30000
+}
+
+// 钱包签名等待超时（imToken 等 shouldPollResponse 卡住时兜底）
+async function withSendTimeout(promise, ms, timeoutMessage) {
+  let timer
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(timeoutMessage)), ms)
+  })
+  try {
+    return await Promise.race([promise, timeoutPromise])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+// 限流敏感钱包合约写不在 send 内轮询，改由应用层确认
+function buildApproveTxOptions(baseOptions, walletId = '') {
+  if (!isRateLimitSensitiveWallet(walletId)) return baseOptions
+  return { ...baseOptions, shouldPollResponse: false }
+}
+
+function buildDepositTxOptions(baseOptions, walletId = '') {
+  if (!isRateLimitSensitiveWallet(walletId)) return baseOptions
+  return { ...baseOptions, shouldPollResponse: false }
+}
+
 // 统一配置 TronWeb RPC 节点（支持 TronGrid API Key）
 function applyTronRpcHost(tronWeb) {
   if (!tronWeb) return
@@ -579,12 +625,14 @@ async function buildUsdtPaymentSteps(tronWeb, address, orderTotal, { lightweight
   const steps = []
 
   let needsApprove = true
-  try {
-    const usdtContract = await tronWeb.contract(TRC20_ABI, USDT_CONTRACT)
-    const allowance = await getUsdtAllowance(usdtContract, address, DEPOSIT_CONTRACT)
-    needsApprove = parseRawUint(allowance) < BigInt(amount)
-  } catch (error) {
-    console.warn('查询 USDT allowance 失败，按需要授权估算', error)
+  if (!lightweight) {
+    try {
+      const usdtContract = await tronWeb.contract(TRC20_ABI, USDT_CONTRACT)
+      const allowance = await getUsdtAllowance(usdtContract, address, DEPOSIT_CONTRACT)
+      needsApprove = parseRawUint(allowance) < BigInt(amount)
+    } catch (error) {
+      console.warn('查询 USDT allowance 失败，按需要授权估算', error)
+    }
   }
 
   if (needsApprove) {
@@ -635,7 +683,9 @@ async function estimateResourceModeFeeSun(tronWeb, address, resources, rates, or
 
 // 从链上估算矿工费（含提示文案与是否充足）
 export async function estimateMinerFeeFromChain(tronWeb, address, feeMode, resources = {}, orderTotal = '1.00', options = {}) {
-  const rates = await fetchChainFeeRates(tronWeb)
+  const rates = options.lightweight
+    ? { energyFeeSun: 420, bandwidthFeeSun: 1000 }
+    : await fetchChainFeeRates(tronWeb)
 
   if (feeMode === FEE_MODE.BURN) {
     const burnSun = await estimateBurnModeFeeSun(tronWeb, resources, rates)
@@ -935,13 +985,16 @@ async function finalizeSentTransaction(tronWeb, tx, { onConfirming, fallbackChec
 }
 
 // 查询 USDT 授权额度
-async function getUsdtAllowance(usdtContract, owner, spender) {
-  const allowance = await withRetry(() => usdtContract.allowance(owner, spender).call())
+async function getUsdtAllowance(usdtContract, owner, spender, walletId = '') {
+  const retryOpts = isRateLimitSensitiveWallet(walletId)
+    ? { retries: 1, baseDelay: 3500 }
+    : { retries: 3, baseDelay: 2000 }
+  const allowance = await withRetry(() => usdtContract.allowance(owner, spender).call(), retryOpts)
   return parseRawUint(allowance)
 }
 
 // 轮询等待 USDT 授权额度达到要求
-async function waitForUsdtAllowance(usdtContract, owner, spender, minAmount, { timeout = 35000, fastPoll = false, lightweight = false } = {}) {
+async function waitForUsdtAllowance(usdtContract, owner, spender, minAmount, { timeout = 35000, fastPoll = false, lightweight = false, walletId = '' } = {}) {
   const needed = BigInt(minAmount)
   const start = Date.now()
   let attempt = 0
@@ -954,7 +1007,7 @@ async function waitForUsdtAllowance(usdtContract, owner, spender, minAmount, { t
 
   while (Date.now() - start < timeout && attempt < maxAttempts) {
     try {
-      const allowance = await getUsdtAllowance(usdtContract, owner, spender)
+      const allowance = await getUsdtAllowance(usdtContract, owner, spender, walletId)
       if (allowance >= needed) return allowance
     } catch (error) {
       if (isRateLimitError(error)) {
@@ -973,7 +1026,7 @@ async function waitForUsdtAllowance(usdtContract, owner, spender, minAmount, { t
 
   if (fastPoll || lightweight) {
     try {
-      const allowance = await getUsdtAllowance(usdtContract, owner, spender)
+      const allowance = await getUsdtAllowance(usdtContract, owner, spender, walletId)
       if (allowance >= needed) return allowance
     } catch (error) {
       if (!isRateLimitError(error)) throw error
@@ -1010,24 +1063,54 @@ async function waitForUsdtPaymentEffect(usdtContract, owner, amount, { timeout =
 }
 
 // 确保 USDT 已授权给收款合约（不足则发起 approve）
-async function ensureUsdtAllowance(usdtContract, owner, spender, amount, txOptions, tronWeb, onProgress, walletId = '') {
+async function ensureUsdtAllowance(usdtContract, owner, spender, amount, txOptions, tronWeb, walletId = '', payOptions = {}) {
+  const { onProgress, onBeforeWalletSign, onAfterWalletSign } = payOptions
   const needed = BigInt(amount)
-  const current = await getUsdtAllowance(usdtContract, owner, spender)
+  const current = await getUsdtAllowance(usdtContract, owner, spender, walletId)
   if (current >= needed) return false
 
-  onProgress?.('approve')
+  const allowanceWaitOpts = (extra = {}) => ({
+    walletId,
+    ...(isRateLimitSensitiveWallet(walletId)
+      ? { timeout: 15000, lightweight: true, ...extra }
+      : { timeout: 15000, fastPoll: true, ...extra })
+  })
+
   try {
-    const approveTx = await sendContractWithRetry(() => usdtContract.approve(spender, amount).send(txOptions))
-    const txid = extractTxId(approveTx)
-    const sendOk = isSendSuccessful(approveTx)
+    onProgress?.('approve')
+    const approveTxOptions = buildApproveTxOptions(txOptions, walletId)
+    const signTimeoutMs = getWalletSignTimeoutMs(walletId)
+    onBeforeWalletSign?.()
+    let approveTx = null
+    let signTimedOut = false
+    try {
+      approveTx = await withSendTimeout(
+        sendWalletContract(() => usdtContract.approve(spender, amount).send(approveTxOptions), walletId),
+        signTimeoutMs,
+        t('tronPay.usdtApprovalSignTimeout')
+      )
+    } catch (signError) {
+      if (signError?.message !== t('tronPay.usdtApprovalSignTimeout')) {
+        throw signError
+      }
+      signTimedOut = true
+      console.warn('approve send 超时，尝试检查链上授权是否已生效')
+    } finally {
+      onAfterWalletSign?.('approveConfirming')
+    }
 
     onProgress?.('approveConfirming')
 
+    if (signTimedOut) {
+      await waitForUsdtAllowance(usdtContract, owner, spender, amount, allowanceWaitOpts({ timeout: 25000 }))
+      return true
+    }
+
+    const txid = extractTxId(approveTx)
+    const sendOk = isSendSuccessful(approveTx)
+
     if (sendOk && txid) {
-      const allowanceWaitOpts = isRateLimitSensitiveWallet(walletId)
-        ? { timeout: 12000, lightweight: true }
-        : { timeout: 12000, fastPoll: true }
-      await waitForUsdtAllowance(usdtContract, owner, spender, amount, allowanceWaitOpts)
+      await waitForUsdtAllowance(usdtContract, owner, spender, amount, allowanceWaitOpts({ timeout: 12000 }))
       return true
     }
 
@@ -1037,10 +1120,7 @@ async function ensureUsdtAllowance(usdtContract, owner, spender, amount, txOptio
       console.warn('approve 返回无 txid，等待链上 allowance 生效')
     }
 
-    const allowanceWaitOpts = isRateLimitSensitiveWallet(walletId)
-      ? { timeout: 15000, lightweight: true }
-      : { timeout: 15000, fastPoll: true }
-    await waitForUsdtAllowance(usdtContract, owner, spender, amount, allowanceWaitOpts)
+    await waitForUsdtAllowance(usdtContract, owner, spender, amount, allowanceWaitOpts())
     return true
   } catch (error) {
     if (isUserRejectedError(error)) {
@@ -1048,6 +1128,9 @@ async function ensureUsdtAllowance(usdtContract, owner, spender, amount, txOptio
     }
     if (isRateLimitError(error)) {
       throw new Error(t('tronPay.rateLimitError'))
+    }
+    if (error?.message === t('tronPay.usdtApprovalSignTimeout')) {
+      throw error
     }
     throw new Error(t('tronPay.usdtApprovalFailed', { message: error?.message || String(error) }))
   }
@@ -1220,44 +1303,72 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
 
   const usdtContract = await tronWeb.contract(TRC20_ABI, USDT_CONTRACT)
   const depositContract = await tronWeb.contract(acceptorAbi, DEPOSIT_CONTRACT)
+  const depositTxOptions = buildDepositTxOptions(buildTxSendOptions(feeMode), walletId)
+  const snapshot = options.paymentSnapshot
 
-  // 串行获取余额、资源
-  const usdtRaw = await withRetry(() => usdtContract.balanceOf(address).call())
-  const trxSun = await withRetry(() => tronWeb.trx.getBalance(address))
-  const resources = await fetchAccountResources(tronWeb, address)
-
-  let minerFeeTrx = MIN_TRX_FEE_FALLBACK
-  try {
-    const feeOptions = {
-      lightweight: isRateLimitSensitiveWallet(walletId)
+  if (canUsePaymentSnapshot(walletId, snapshot)) {
+    const readiness = validatePaymentReadiness({
+      feeMode,
+      usdt: snapshot.usdt,
+      trx: snapshot.trx,
+      orderTotal,
+      resources: snapshot.resources || { energy: 0, bandwidth: 0 },
+      minerFeeTrx: snapshot.minerFeeTrx ?? MIN_TRX_FEE_FALLBACK
+    })
+    if (!readiness.ok) {
+      throw new Error(readiness.message)
     }
-    const fee = await estimateMinerFeeFromChain(tronWeb, address, feeMode, resources, orderTotal, feeOptions)
-    minerFeeTrx = fee.amountTrx
-  } catch (error) {
-    console.warn('支付前矿工费估算失败，使用兜底值', error)
-    minerFeeTrx = estimateMinerFeeFallback(feeMode, resources).amountTrx
-  }
+  } else {
+    const usdtRaw = await withRetry(() => usdtContract.balanceOf(address).call())
+    const trxSun = await withRetry(() => tronWeb.trx.getBalance(address))
+    const resources = await fetchAccountResources(tronWeb, address)
 
-  const readiness = validatePaymentReadiness({
-    feeMode,
-    usdt: fromUsdtAmount(usdtRaw),
-    trx: fromTrxAmount(trxSun),
-    orderTotal,
-    resources,
-    minerFeeTrx
-  })
-  if (!readiness.ok) {
-    throw new Error(readiness.message)
+    let minerFeeTrx = MIN_TRX_FEE_FALLBACK
+    try {
+      const feeOptions = {
+        lightweight: isRateLimitSensitiveWallet(walletId)
+      }
+      const fee = await estimateMinerFeeFromChain(tronWeb, address, feeMode, resources, orderTotal, feeOptions)
+      minerFeeTrx = fee.amountTrx
+    } catch (error) {
+      console.warn('支付前矿工费估算失败，使用兜底值', error)
+      minerFeeTrx = estimateMinerFeeFallback(feeMode, resources).amountTrx
+    }
+
+    const readiness = validatePaymentReadiness({
+      feeMode,
+      usdt: fromUsdtAmount(usdtRaw),
+      trx: fromTrxAmount(trxSun),
+      orderTotal,
+      resources,
+      minerFeeTrx
+    })
+    if (!readiness.ok) {
+      throw new Error(readiness.message)
+    }
   }
 
   const txOptions = buildTxSendOptions(feeMode)
 
   // 限流敏感钱包：支付前短暂冷却，降低 approve 前 TronGrid 429 概率
   if (isRateLimitSensitiveWallet(walletId)) {
-    await new Promise((resolve) => setTimeout(resolve, 600))
+    await new Promise((resolve) => setTimeout(resolve, 1200))
   }
 
-  const didApprove = await ensureUsdtAllowance(usdtContract, address, DEPOSIT_CONTRACT, amount, txOptions, tronWeb, options.onProgress, walletId)
+  const didApprove = await ensureUsdtAllowance(
+    usdtContract,
+    address,
+    DEPOSIT_CONTRACT,
+    amount,
+    txOptions,
+    tronWeb,
+    walletId,
+    {
+      onProgress: options.onProgress,
+      onBeforeWalletSign: options.onBeforeWalletSign,
+      onAfterWalletSign: options.onAfterWalletSign
+    }
+  )
 
   if (didApprove && isRateLimitSensitiveWallet(walletId)) {
     await new Promise((resolve) => setTimeout(resolve, 500))
@@ -1266,8 +1377,18 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
   options.onProgress?.('deposit')
   let depositRetry = 0
   while (depositRetry < 2) {
+    options.onBeforeWalletSign?.()
+    let tx
     try {
-      const tx = await sendContractWithRetry(() => depositContract.deposit(amount).send(txOptions))
+      tx = await withSendTimeout(
+        sendWalletContract(() => depositContract.deposit(amount).send(depositTxOptions), walletId),
+        getWalletSignTimeoutMs(walletId),
+        t('tronPay.usdtDepositSignTimeout')
+      )
+    } finally {
+      options.onAfterWalletSign?.('depositConfirming')
+    }
+    try {
       const finalized = await finalizeSentTransaction(tronWeb, tx, {
         onConfirming: () => options.onProgress?.('depositConfirming'),
         fallbackCheck: () => waitForUsdtPaymentEffect(usdtContract, address, amount, { timeout: 18000, fastPoll: true })
@@ -1293,6 +1414,8 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
           errorMsg = t('tronPay.insufficientEnergyTx', { wallet: walletMeta.name })
         } else if (/allowance|InsufficientAllowance/i.test(errorMsg)) {
           errorMsg = t('tronPay.usdtAllowanceTimeout')
+        } else if (errorMsg === t('tronPay.usdtDepositSignTimeout')) {
+          errorMsg = e.message
         } else {
           errorMsg = t('tronPay.depositTxFailedDetail', { message: errorMsg })
         }

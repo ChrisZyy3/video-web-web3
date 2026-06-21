@@ -235,6 +235,8 @@ export default {
     txTimeout: '{wallet}: transaction timed out, please retry',
     usdtApprovalFailed: 'USDT approval failed: {message}',
     usdtApprovalRejected: 'USDT approval cancelled',
+    usdtApprovalSignTimeout: 'USDT approval response timed out. If you already confirmed in imToken, wait a moment and pay again',
+    usdtDepositSignTimeout: 'USDT payment timed out. Check wallet or Tronscan for pending transactions',
     usdtApprovalNoTxid: 'USDT approval did not return a transaction ID',
     usdtAllowanceTimeout: 'USDT approval not yet on-chain. Retry payment shortly (no re-approval needed)',
     usdtDepositRejected: 'USDT payment cancelled',
