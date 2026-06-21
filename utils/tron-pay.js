@@ -378,8 +378,9 @@ export function normalizeFeeMode(feeMode) {
 
 const ENERGY_NEEDED = 130000
 const BANDWIDTH_NEEDED = 690
-const MIN_TRX_RESOURCE = 1
 const MIN_TRX_FEE_FALLBACK = 1
+// 页面支付按钮 / 支付前校验：固定 12 TRX 门槛，不依赖实时矿工费估算
+export const MIN_TRX_PAY_GATE = 12
 const TRX_TRANSFER_BANDWIDTH = 268
 const CONTRACT_TX_BANDWIDTH = 345
 // TRC20 USDT 主网实测保底（首次 approve + deposit 串行）
@@ -830,25 +831,24 @@ export async function fetchAccountResources(tronWeb, address) {
   }
 }
 
-// 支付前校验余额与资源是否满足
-export function validatePaymentReadiness({ feeMode, usdt, trx, orderTotal, resources, minerFeeTrx }) {
+// 支付前校验余额（固定 12 TRX 门槛，不依赖实时矿工费估算）
+export function validatePaymentReadiness({ feeMode, usdt, trx, orderTotal }) {
   const orderAmt = parseFloat(orderTotal || '0')
   const usdtBal = parseBalance(usdt)
   const trxBal = parseBalance(trx)
-  const feeTrx = parseMinerFeeTrx(minerFeeTrx)
 
   if (!orderAmt || Number.isNaN(orderAmt)) {
     return { ok: false, message: t('tronPay.invalidPaymentAmount') }
   }
 
   if (feeMode === FEE_MODE.BURN) {
-    const totalNeeded = orderAmt + feeTrx
+    const totalNeeded = orderAmt + MIN_TRX_PAY_GATE
     if (trxBal < totalNeeded) {
       return {
         ok: false,
         message: t('tronPay.insufficientTrx', {
           total: totalNeeded.toFixed(2),
-          fee: feeTrx.toFixed(2)
+          fee: MIN_TRX_PAY_GATE.toFixed(2)
         })
       }
     }
@@ -859,16 +859,11 @@ export function validatePaymentReadiness({ feeMode, usdt, trx, orderTotal, resou
     return { ok: false, message: t('tronPay.insufficientUsdt') }
   }
 
-  const requiredTrx = feeTrx <= 0 ? MIN_TRX_RESOURCE : Math.max(feeTrx, MIN_TRX_RESOURCE)
-
-  if (trxBal < requiredTrx) {
-    if (feeTrx > 0) {
-      return {
-        ok: false,
-        message: t('tronPay.insufficientTrxForResourceFee', { needed: requiredTrx.toFixed(2) })
-      }
+  if (trxBal < MIN_TRX_PAY_GATE) {
+    return {
+      ok: false,
+      message: t('tronPay.insufficientTrxForResourceFee', { needed: MIN_TRX_PAY_GATE.toFixed(2) })
     }
-    return { ok: false, message: t('tronPay.keepMinTrx') }
   }
 
   return { ok: true }
@@ -1238,24 +1233,12 @@ export async function payByTrx(walletId = '', orderTotal, options = {}) {
   }
 
   const trxSun = await withRetry(() => tronWeb.trx.getBalance(address))
-  const resources = await fetchAccountResources(tronWeb, address)
-
-  let minerFeeTrx = MIN_TRX_FEE_FALLBACK
-  try {
-    const fee = await estimateMinerFeeFromChain(tronWeb, address, feeMode, resources, orderTotal)
-    minerFeeTrx = fee.amountTrx
-  } catch (error) {
-    console.warn('支付前矿工费估算失败，使用兜底值', error)
-    minerFeeTrx = estimateMinerFeeFallback(feeMode, resources).amountTrx
-  }
 
   const readiness = validatePaymentReadiness({
     feeMode,
     usdt: '0',
     trx: fromTrxAmount(trxSun),
-    orderTotal,
-    resources,
-    minerFeeTrx
+    orderTotal
   })
   if (!readiness.ok) {
     throw new Error(readiness.message)
@@ -1311,9 +1294,7 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
       feeMode,
       usdt: snapshot.usdt,
       trx: snapshot.trx,
-      orderTotal,
-      resources: snapshot.resources || { energy: 0, bandwidth: 0 },
-      minerFeeTrx: snapshot.minerFeeTrx ?? MIN_TRX_FEE_FALLBACK
+      orderTotal
     })
     if (!readiness.ok) {
       throw new Error(readiness.message)
@@ -1321,27 +1302,12 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
   } else {
     const usdtRaw = await withRetry(() => usdtContract.balanceOf(address).call())
     const trxSun = await withRetry(() => tronWeb.trx.getBalance(address))
-    const resources = await fetchAccountResources(tronWeb, address)
-
-    let minerFeeTrx = MIN_TRX_FEE_FALLBACK
-    try {
-      const feeOptions = {
-        lightweight: isRateLimitSensitiveWallet(walletId)
-      }
-      const fee = await estimateMinerFeeFromChain(tronWeb, address, feeMode, resources, orderTotal, feeOptions)
-      minerFeeTrx = fee.amountTrx
-    } catch (error) {
-      console.warn('支付前矿工费估算失败，使用兜底值', error)
-      minerFeeTrx = estimateMinerFeeFallback(feeMode, resources).amountTrx
-    }
 
     const readiness = validatePaymentReadiness({
       feeMode,
       usdt: fromUsdtAmount(usdtRaw),
       trx: fromTrxAmount(trxSun),
-      orderTotal,
-      resources,
-      minerFeeTrx
+      orderTotal
     })
     if (!readiness.ok) {
       throw new Error(readiness.message)

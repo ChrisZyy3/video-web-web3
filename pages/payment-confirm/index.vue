@@ -106,7 +106,7 @@
       </scroll-view>
 
       <view class="footer" :style="{ paddingBottom: safeBottom + 'px' }">
-        <view class="pay-btn" :class="{ 'pay-btn--disabled': paying || paymentCompleted || !walletReady || !warningValid || loadingMinerFee }" @click="handlePay">
+        <view class="pay-btn" :class="{ 'pay-btn--disabled': paying || paymentCompleted || !walletReady || !warningValid }" @click="handlePay">
           <text class="pay-btn-text">{{ payBtnText }}</text>
         </view>
       </view>
@@ -189,9 +189,7 @@ const warningValid = computed(() => {
     feeMode: feeMode.value,
     usdt: wallet.value.usdt,
     trx: wallet.value.trx,
-    orderTotal: order.value.total,
-    resources: walletResources.value,
-    minerFeeTrx: parseMinerFeeTrx(minerFeeTrx.value)
+    orderTotal: order.value.total
   })
   return check.ok
 })
@@ -413,9 +411,7 @@ const handlePay = async () => {
     feeMode: feeMode.value,
     usdt: wallet.value.usdt,
     trx: wallet.value.trx,
-    orderTotal: order.value.total,
-    resources: walletResources.value,
-    minerFeeTrx: parseMinerFeeTrx(minerFeeTrx.value)
+    orderTotal: order.value.total
   })
   if (!check.ok) {
     uni.showToast({ title: check.message, icon: 'none', duration: 2500 })
