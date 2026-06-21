@@ -133,8 +133,7 @@ import {
   parsePaymentReturnUrl,
   redirectAfterPaymentSuccess,
   markOrderPaymentCompleted,
-  getDefaultFeeMode,
-  isImTokenWallet
+  isRateLimitSensitiveWallet
 } from '@/utils/tron-pay'
 
 const { t } = useI18n()
@@ -180,8 +179,8 @@ let timer = null
 let balanceTimer = null
 
 const BALANCE_REFRESH_INTERVAL = 30000
-const IMTOKEN_REFRESH_INTERVAL = 120000
-const IMTOKEN_SHOW_REFRESH_GAP = 30000
+const THROTTLED_REFRESH_INTERVAL = 120000
+const THROTTLED_SHOW_REFRESH_GAP = 30000
 let lastBalanceRefreshAt = 0
 
 // 【新增】警告信息有效性（用于禁用支付按钮）
@@ -211,40 +210,7 @@ const payBtnText = computed(() => {
 })
 
 const warningText = computed(() => {
-  const fee = parseMinerFeeTrx(minerFeeTrx.value)
-  const check = validatePaymentReadiness({
-    feeMode: feeMode.value,
-    usdt: wallet.value.usdt,
-    trx: wallet.value.trx,
-    orderTotal: order.value.total,
-    resources: walletResources.value,
-    minerFeeTrx: fee
-  })
-
-  if (!check.ok) {
-    return check.message
-  }
-
-  if (feeMode.value === FEE_MODE.BURN) {
-    const totalNeeded = (parseFloat(order.value.total || '0') + fee).toFixed(2)
-    return t('payment.warningBurnMode', {
-      total: totalNeeded,
-      fee: fee.toFixed(2)
-    })
-  }
-
-  const { energy, bandwidth } = walletResources.value
-  const energyText = energy >= 120000
-    ? t('payment.resourceSufficient')
-    : t('payment.resourceInsufficient', { current: energy, needed: 120000 })
-  const bandwidthText = bandwidth >= 600
-    ? t('payment.resourceSufficient')
-    : t('payment.resourceInsufficient', { current: bandwidth, needed: 600 })
-
-  return t('payment.warningResourceMode', {
-    energyStatus: energyText,
-    bandwidthStatus: bandwidthText
-  })
+  return t('payment.tisp')
 })
 
 // SVG图标生成（原有逻辑保留）
@@ -301,9 +267,9 @@ const startCountdownTimer = () => {
   timer = setInterval(updateCountdown, 1000)
 }
 
-// 默认手续费模式：imToken 默认右侧「燃烧 TRX」减少 RPC；其他钱包默认左侧「使用资源」
+// 每次进入支付页默认左侧「使用资源」
 const loadFeeMode = () => {
-  feeMode.value = getDefaultFeeMode(walletType.value.id)
+  feeMode.value = FEE_MODE.RESOURCE
 }
 
 // 选择支付方式：切换后重新估算网络费并展示加载状态
@@ -337,7 +303,7 @@ const refreshBalances = async ({ force = false, silent = false } = {}) => {
   if (loadingBalance.value && !force) return
 
   const now = Date.now()
-  const refreshGap = isImTokenWallet(walletType.value.id) ? IMTOKEN_REFRESH_INTERVAL : BALANCE_REFRESH_INTERVAL
+  const refreshGap = isRateLimitSensitiveWallet(walletType.value.id) ? THROTTLED_REFRESH_INTERVAL : BALANCE_REFRESH_INTERVAL
   if (!force && walletReady.value && now - lastBalanceRefreshAt < refreshGap) {
     return
   }
@@ -398,10 +364,10 @@ const handleClose = () => {
 
 // 支付前同步矿工费（与 payByDeposit 内部估算保持一致）
 const syncMinerFeeBeforePay = async () => {
-  const imtoken = isImTokenWallet(walletType.value.id)
+  const throttled = isRateLimitSensitiveWallet(walletType.value.id)
   const recentlyRefreshed = Date.now() - lastBalanceRefreshAt < 15000
-  if (imtoken && recentlyRefreshed) return
-  if (imtoken) {
+  if (throttled && recentlyRefreshed) return
+  if (throttled) {
     await new Promise((resolve) => setTimeout(resolve, 800))
   }
   await refreshBalances({ force: true })
@@ -411,10 +377,10 @@ const syncMinerFeeBeforePay = async () => {
 const handlePay = async () => {
   if (paying.value || paymentCompleted.value) return
 
-  // 新增：imToken支付前提前校验链连接
-  if (walletType.value.id === 'imtoken') {
+  // 限流敏感钱包：支付前提前校验链连接
+  if (isRateLimitSensitiveWallet(walletType.value.id)) {
     try {
-      await waitForTronWeb('imtoken', 5000)
+      await waitForTronWeb(walletType.value.id, 5000)
     } catch (err) {
       uni.showToast({ title: formatWalletFetchError(err), icon: 'none', duration: 3000 })
       return
@@ -458,10 +424,24 @@ const handlePay = async () => {
 
   // 发起支付
   paying.value = true
-  uni.showLoading({ title: t('payment.payingWith', { token: feeMode.value === FEE_MODE.BURN ? 'TRX' : 'USDT' }), mask: true })
+  const payToken = feeMode.value === FEE_MODE.BURN ? 'TRX' : 'USDT'
+  const payProgressTitles = {
+    approve: () => t('payment.approveSign'),
+    approveConfirming: () => t('payment.approveConfirming'),
+    deposit: () => t('payment.depositSign'),
+    depositConfirming: () => t('payment.depositConfirming'),
+    trx: () => t('payment.trxSign'),
+    trxConfirming: () => t('payment.trxConfirming')
+  }
+  const updatePayLoading = (stage) => {
+    const title = payProgressTitles[stage]?.() || t('payment.payingWith', { token: payToken })
+    uni.showLoading({ title, mask: true })
+  }
+  uni.showLoading({ title: t('payment.payingWith', { token: payToken }), mask: true })
   try {
     await payOrder(walletType.value.id, order.value.total, {
-      feeMode: normalizeFeeMode(feeMode.value)
+      feeMode: normalizeFeeMode(feeMode.value),
+      onProgress: updatePayLoading
     })
     paymentCompleted.value = true
     markOrderPaymentCompleted()
@@ -510,13 +490,13 @@ onShow(async () => {
   resetOrderCountdown()
   startCountdownTimer()
 
-  // imToken切后台会销毁tronWeb，延迟等待重新注入
-  if (walletType.value.id === 'imtoken') {
+  // imToken / BitKeep 切后台可能延迟注入 TronWeb
+  if (isRateLimitSensitiveWallet(walletType.value.id)) {
     await new Promise(r => setTimeout(r, 800))
   }
-  const imtoken = isImTokenWallet(walletType.value.id)
+  const throttled = isRateLimitSensitiveWallet(walletType.value.id)
   const gapSinceRefresh = Date.now() - lastBalanceRefreshAt
-  if (walletReady.value && (!imtoken || gapSinceRefresh >= IMTOKEN_SHOW_REFRESH_GAP)) {
+  if (walletReady.value && (!throttled || gapSinceRefresh >= THROTTLED_SHOW_REFRESH_GAP)) {
     refreshBalances({ silent: true })
   }
 })
@@ -524,14 +504,14 @@ onShow(async () => {
 onMounted(async () => {
   calcLayout()
 
-  // imToken 延迟拉取余额，降低 TronGrid 429 概率
-  if (walletType.value.id === 'imtoken') {
+  // imToken / BitKeep 延迟拉取余额，降低 TronGrid 429 概率
+  if (isRateLimitSensitiveWallet(walletType.value.id)) {
     setTimeout(() => refreshBalances({ force: true }), 3500)
   } else {
     refreshBalances({ force: true })
   }
 
-  const interval = isImTokenWallet(walletType.value.id) ? IMTOKEN_REFRESH_INTERVAL : BALANCE_REFRESH_INTERVAL
+  const interval = isRateLimitSensitiveWallet(walletType.value.id) ? THROTTLED_REFRESH_INTERVAL : BALANCE_REFRESH_INTERVAL
   balanceTimer = setInterval(() => refreshBalances({ silent: true }), interval)
 })
 

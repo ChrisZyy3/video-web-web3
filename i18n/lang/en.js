@@ -33,11 +33,18 @@ export default {
     paying: 'Paying...',
     connectWallet: 'Connect {wallet}',
     payingWith: 'Paying with {token}...',
+    approveSign: 'Confirm USDT approval in wallet...',
+    approveConfirming: 'Approval submitted, confirming on chain...',
+    depositSign: 'Confirm USDT payment in wallet...',
+    depositConfirming: 'Payment submitted, confirming on chain...',
+    trxSign: 'Confirm TRX payment in wallet...',
+    trxConfirming: 'Payment submitted, confirming on chain...',
     openInWalletBrowser: 'Please open in {wallet} built-in browser',
     warningBurnMode: '「Burn TRX」 mode: order is paid in TRX. Ensure TRX balance ≥ {total} TRX (incl. ~{fee} TRX network fee), or the transaction will fail and cannot be reversed.',
     warningResourceMode: '「Use Resources」 mode: order is paid in USDT; network fees are covered by energy and bandwidth first. Energy {energyStatus}, bandwidth {bandwidthStatus}. Switch to 「Burn TRX」 if resources are insufficient.',
     resourceSufficient: 'sufficient',
-    resourceInsufficient: 'insufficient (current {current}/need {needed})'
+    resourceInsufficient: 'insufficient (current {current}/need {needed})',
+    tisp: 'Please ensure your wallet has at least 12 TRX for network fees, otherwise the transaction will fail and cannot be refunded.'
   },
   paymentWallet: {
     title: 'Select Payment Wallet',

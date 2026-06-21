@@ -33,11 +33,18 @@ export default {
     paying: '支付中...',
     connectWallet: '连接 {wallet}',
     payingWith: '正在使用 {token} 支付...',
+    approveSign: '请在钱包中确认 USDT 授权...',
+    approveConfirming: '授权已提交，链上确认中...',
+    depositSign: '请在钱包中确认 USDT 扣款...',
+    depositConfirming: '扣款已提交，链上确认中...',
+    trxSign: '请在钱包中确认 TRX 支付...',
+    trxConfirming: '支付已提交，链上确认中...',
     openInWalletBrowser: '请在 {wallet} 内置浏览器中打开',
     warningBurnMode: '「燃烧 TRX」模式：订单使用 TRX 支付。请确保 TRX 余额 ≥ {total} TRX（含约 {fee} TRX 网络费），否则交易将失败且无法撤销。',
     warningResourceMode: '「使用资源」模式：订单使用 USDT 支付；网络费优先由能量和带宽抵扣。能量 {energyStatus}，带宽 {bandwidthStatus}。若资源不足，请切换至「燃烧 TRX」。',
     resourceSufficient: '充足',
-    resourceInsufficient: '不足（当前 {current}/需要 {needed}）'
+    resourceInsufficient: '不足（当前 {current}/需要 {needed}）',
+    tisp: '请确保您的钱包中有足够12个的TRX用于支付矿工费，否则交易将失败且无法退回。'
   },
   paymentWallet: {
     title: '选择支付钱包',
