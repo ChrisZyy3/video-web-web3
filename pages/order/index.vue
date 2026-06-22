@@ -1,7 +1,7 @@
 <template>
 	<view class="page">
 
-		<view class="main" :style="{ paddingTop: statusBarHeight + 'px' }">
+		<view class="main" :style="mainStyle">
 			<view class="nav-bar">
 				<view class="back-btn" @click="handleBack">
 					<text class="back-icon">‹</text>
@@ -57,9 +57,11 @@
 					</view>
 				</view>
 
-				<view class="list-end" v-if="filteredOrders&&filteredOrders.lenght>10">
+				<view class="list-end" v-if="filteredOrders && filteredOrders.length > 10">
 					<text class="list-end-text">{{ t('order.listEnd') }}</text>
 				</view>
+
+				<view class="bottom-space" :style="{ height: bottomSpaceHeight + 'px' }" />
 			</scroll-view>
 		</view>
 	</view>
@@ -68,12 +70,17 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { getMobilePageLayout, getScrollBodyHeight, bindViewportResize } from '@/utils/h5-compat'
+import { calcFullScrollPageLayout, bindViewportResize } from '@/utils/h5-compat'
 
 const { t } = useI18n()
 
+const NAV_BAR_RPX = 88
+const SCROLL_BOTTOM_RPX = 40
+
 const statusBarHeight = ref(0)
+const mainHeight = ref(0)
 const scrollHeight = ref(0)
+const bottomSpaceHeight = ref(40)
 const activeTab = ref('all')
 
 const tabs = computed(() => [
@@ -131,10 +138,20 @@ const filteredOrders = computed(() => {
 	return orders.value.filter((item) => item.status === activeTab.value)
 })
 
+const mainStyle = computed(() => ({
+	paddingTop: `${statusBarHeight.value}px`,
+	height: mainHeight.value ? `${mainHeight.value}px` : '100vh'
+}))
+
 const calcLayout = () => {
-	const layout = getMobilePageLayout()
+	const layout = calcFullScrollPageLayout({
+		headerBlockRpx: NAV_BAR_RPX,
+		scrollBottomRpx: SCROLL_BOTTOM_RPX
+	})
 	statusBarHeight.value = layout.statusBarHeight
-	scrollHeight.value = getScrollBodyHeight(uni.upx2px(88), uni.upx2px(72))
+	mainHeight.value = layout.mainHeight
+	scrollHeight.value = layout.scrollHeight
+	bottomSpaceHeight.value = layout.bottomSpaceHeight
 }
 
 let unbindViewport = null
@@ -200,7 +217,13 @@ onUnmounted(() => {
 .main {
 	position: relative;
 	z-index: 1;
-	min-height: 100vh;
+	height: 100vh;
+	height: calc(var(--vh, 1vh) * 100);
+	height: -webkit-fill-available;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	box-sizing: border-box;
 }
 
 .nav-bar {
@@ -276,8 +299,10 @@ onUnmounted(() => {
 }
 
 .scroll-body {
+	flex-shrink: 0;
 	width: 100%;
 	padding-top: 16rpx;
+	box-sizing: border-box;
 }
 
 .empty-tip {
@@ -383,10 +408,14 @@ onUnmounted(() => {
 }
 
 .list-end {
-	padding: 48rpx 0 80rpx;
+	padding: 48rpx 0 24rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+}
+
+.bottom-space {
+	flex-shrink: 0;
 }
 
 .list-end-text {
