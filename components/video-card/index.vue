@@ -5,7 +5,7 @@
         :id="videoId"
         class="cover-video"
         :src="video"
-        :poster="cover"
+        :poster="framePoster"
         :autoplay="autoplay"
         :loop="loop"
         :muted="muted"
@@ -16,8 +16,10 @@
         :show-progress="false"
         :controls="false"
         :enable-progress-gesture="false"
+        preload="metadata"
         object-fit="cover"
         @canplay="onCanPlay"
+        @loadedmetadata="onVideoMeta"
         @error="onError"
       />
    <!--   <view
@@ -40,6 +42,8 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useVideoFirstFramePoster } from '@/utils/use-video-poster'
+import { applyNativeVideoPoster } from '@/utils/video-poster'
 
 const props = defineProps({
   views: {
@@ -90,6 +94,12 @@ const props = defineProps({
 
 defineEmits(['click', 'favorite'])
 
+const framePoster = useVideoFirstFramePoster(
+  () => props.video,
+  () => props.cover,
+  () => props.videoId
+)
+
 const HEART_PATH = '<path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>'
 
 const hasPlayed = ref(false)
@@ -115,6 +125,10 @@ const tryPlay = () => {
 
 const onCanPlay = () => {
   tryPlay()
+}
+
+const onVideoMeta = () => {
+  if (framePoster.value) applyNativeVideoPoster(props.videoId, framePoster.value)
 }
 
 const onError = (e) => {

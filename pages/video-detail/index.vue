@@ -18,7 +18,7 @@
 						class="player-video"
 						:class="{ 'player-video--ios': useIosNativeControls }"
 						:src="detail.play_url"
-						:poster="detail.cover"
+						:poster="videoPoster"
 						:autoplay="false"
 						:loop="false"
 						:muted="false"
@@ -97,6 +97,8 @@ import { getLookVideo, setLookVideo } from '@/utils/look-video'
 import { getLookMember, setLookMember } from '@/utils/look-member'
 import memberSheet from '@/components/member-sheet/index'
 import { calcFullScrollPageLayout, bindViewportResize, shouldUseIosNativeVideoControls, patchNativeVideoControlsForIOS } from '@/utils/h5-compat'
+import { useVideoFirstFramePoster } from '@/utils/use-video-poster'
+import { applyNativeVideoPoster } from '@/utils/video-poster'
 
 const { t } = useI18n()
 const { proxy } = getCurrentInstance()
@@ -129,6 +131,12 @@ const detail = ref({
 
 const showMemberSheet = ref(false)
 const useIosNativeControls = ref(false)
+
+const videoPoster = useVideoFirstFramePoster(
+	() => detail.value.play_url,
+	() => detail.value.cover,
+	() => VIDEO_ID
+)
 
 const progressPercent = computed(() => {
 	if (!duration.value) return 0
@@ -191,7 +199,10 @@ const detectVideoPlatform = () => {
 
 const patchVideoControls = () => {
 	// #ifdef H5
-	nextTick(() => patchNativeVideoControlsForIOS(VIDEO_ID))
+	nextTick(() => {
+		patchNativeVideoControlsForIOS(VIDEO_ID)
+		if (videoPoster.value) applyNativeVideoPoster(VIDEO_ID, videoPoster.value)
+	})
 	// #endif
 }
 

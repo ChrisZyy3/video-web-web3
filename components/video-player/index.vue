@@ -6,7 +6,7 @@
       class="player-video"
       :class="{ 'player-video--ios': useIosNativeControls }"
       :src="video"
-      :poster="cover"
+      :poster="framePoster"
       :autoplay="false"
       :loop="false"
       :muted="false"
@@ -35,6 +35,7 @@ import {
   shouldUseIosNativeVideoControls,
   patchNativeVideoControlsForIOS
 } from '@/utils/h5-compat'
+import { useVideoFirstFramePoster } from '@/utils/use-video-poster'
 
 const props = defineProps({
   visible: {
@@ -60,6 +61,12 @@ const emit = defineEmits(['close', 'update:visible'])
 const closeTop = ref(20)
 const needPlay = ref(false)
 const useIosNativeControls = ref(false)
+
+const framePoster = useVideoFirstFramePoster(
+  () => props.video,
+  () => props.cover,
+  () => props.videoId
+)
 
 const detectVideoPlatform = () => {
   // #ifdef H5
