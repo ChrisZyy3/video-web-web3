@@ -205,3 +205,28 @@ export function initH5Compat() {
   applyCssEnvVars()
   bindViewportResize(applyCssEnvVars)
 }
+
+function findNativeVideoElement(videoId) {
+  if (typeof document === 'undefined' || !videoId) return null
+  const root = document.getElementById(videoId)
+  if (!root) return null
+  return root.tagName === 'VIDEO' ? root : root.querySelector('video')
+}
+
+/** 是否应在 H5 使用 iOS 原生 video 控件（进度条 / 全屏） */
+export function shouldUseIosNativeVideoControls() {
+  return isIOS()
+}
+
+/** 仅 iOS：为真实 video 启用 inline 播放与原生控件 */
+export function patchNativeVideoControlsForIOS(videoId) {
+  if (!shouldUseIosNativeVideoControls()) return
+  const el = findNativeVideoElement(videoId)
+  if (!el) return
+  el.setAttribute('playsinline', 'true')
+  el.setAttribute('webkit-playsinline', 'true')
+  el.controls = true
+  el.setAttribute('controls', 'controls')
+  el.setAttribute('preload', 'metadata')
+  el.setAttribute('controlsList', 'nodownload noremoteplayback')
+}

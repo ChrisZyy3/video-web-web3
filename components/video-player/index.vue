@@ -4,6 +4,7 @@
       :id="videoId"
       :key="video"
       class="player-video"
+      :class="{ 'player-video--ios': useIosNativeControls }"
       :src="video"
       :poster="cover"
       :autoplay="false"
@@ -11,10 +12,11 @@
       :muted="false"
       :playsinline="true"
       :controls="true"
-      :show-center-play-btn="true"
-      :show-fullscreen-btn="true"
+      :show-center-play-btn="!useIosNativeControls"
+      :show-fullscreen-btn="!useIosNativeControls"
       :enable-progress-gesture="true"
-      object-fit="cover"
+      preload="metadata"
+      :object-fit="useIosNativeControls ? 'contain' : 'cover'"
       @canplay="onCanPlay"
       @play="onPlay"
       @error="onError"
@@ -26,8 +28,13 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue'
-import { getMobilePageLayout, bindViewportResize } from '@/utils/h5-compat'
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import {
+  getMobilePageLayout,
+  bindViewportResize,
+  shouldUseIosNativeVideoControls,
+  patchNativeVideoControlsForIOS
+} from '@/utils/h5-compat'
 
 const props = defineProps({
   visible: {
@@ -52,6 +59,19 @@ const emit = defineEmits(['close', 'update:visible'])
 
 const closeTop = ref(20)
 const needPlay = ref(false)
+const useIosNativeControls = ref(false)
+
+const detectVideoPlatform = () => {
+  // #ifdef H5
+  useIosNativeControls.value = shouldUseIosNativeVideoControls()
+  // #endif
+}
+
+const patchVideoControls = () => {
+  // #ifdef H5
+  nextTick(() => patchNativeVideoControlsForIOS(props.videoId))
+  // #endif
+}
 
 const getCtx = () => uni.createVideoContext(props.videoId)
 
@@ -66,11 +86,12 @@ const tryPlay = () => {
 }
 
 const onCanPlay = () => {
+  patchVideoControls()
   tryPlay()
 }
 
 const onPlay = () => {
-	needPlay.value = false
+  needPlay.value = false
 }
 
 const onError = (e) => {
@@ -79,11 +100,11 @@ const onError = (e) => {
 }
 
 const handleClose = () => {
-	getCtx().pause()
-	getCtx().seek(0)
-	needPlay.value = false
-	emit('update:visible', false)
-	emit('close')
+  getCtx().pause()
+  getCtx().seek(0)
+  needPlay.value = false
+  emit('update:visible', false)
+  emit('close')
 }
 
 const updateCloseTop = () => {
@@ -93,7 +114,9 @@ const updateCloseTop = () => {
 let unbindViewport = null
 
 onMounted(() => {
+  detectVideoPlatform()
   updateCloseTop()
+  patchVideoControls()
   // #ifdef H5
   unbindViewport = bindViewportResize(updateCloseTop)
   // #endif
@@ -106,10 +129,16 @@ onUnmounted(() => {
 })
 
 watch(() => props.visible, (val) => {
-	if (!val) {
-		getCtx().pause()
-		needPlay.value = false
-	}
+  if (!val) {
+    getCtx().pause()
+    needPlay.value = false
+    return
+  }
+  patchVideoControls()
+})
+
+watch(() => props.video, () => {
+  patchVideoControls()
 })
 
 defineExpose({ play })
@@ -131,6 +160,10 @@ defineExpose({ play })
   height: 100%;
   display: block;
   background: #000;
+}
+
+.player-video--ios {
+  object-fit: contain;
 }
 
 .player-close {

@@ -12,30 +12,32 @@
 			</view>
 
 			<scroll-view class="scroll-body" scroll-y :style="{ height: scrollHeight + 'px' }">
-				<view class="player-wrap">
+				<view class="player-wrap" :class="{ 'player-wrap--ios': useIosNativeControls }">
 					<video
 						id="detailVideo"
 						class="player-video"
+						:class="{ 'player-video--ios': useIosNativeControls }"
 						:src="detail.play_url"
 						:poster="detail.cover"
 						:autoplay="false"
 						:loop="false"
 						:muted="false"
 						:playsinline="true"
+						:controls="useIosNativeControls"
 						:show-center-play-btn="false"
 						:show-play-btn="false"
-						:show-fullscreen-btn="true"
-						:show-progress="true"
-						:controls="false"
+						:show-fullscreen-btn="!useIosNativeControls"
+						:show-progress="!useIosNativeControls"
 						:enable-progress-gesture="true"
+						preload="metadata"
 						object-fit="contain"
-						@play="playing = true"
+						@play="onVideoPlay"
 						@pause="playing = false"
 						@ended="playing = false"
 						@timeupdate="onTimeUpdate"
 						@error="onVideoError"
 					/>
-					<view v-if="!playing" class="player-mask" @click="handleTogglePlay">
+					<view v-if="!useIosNativeControls && !playing" class="player-mask" @click="handleTogglePlay">
 						<view class="player-play-btn">
 							<image class="player-play-icon" :src="icons.play" mode="aspectFit" />
 						</view>
@@ -62,11 +64,11 @@
 				</view>
 
 				<view class="action-row">
-					<view class="action-btn action-btn--primary" @click="handleTogglePlay">
+					<view v-if="!useIosNativeControls" class="action-btn action-btn--primary" @click="handleTogglePlay">
 						<image class="action-icon" :src="playing ? icons.pause : icons.play" mode="aspectFit" />
 						<text class="action-text">{{ playing ? t('videoDetail.pause') : t('videoDetail.play') }}</text>
 					</view>
-					<view class="action-btn action-btn--outline" @click="handleDownload">
+					<view class="action-btn action-btn--outline" :class="{ 'action-btn--full': useIosNativeControls }" @click="handleDownload">
 						<image class="action-icon" :src="icons.download" mode="aspectFit" />
 						<text class="action-text action-text--gold">{{ t('videoDetail.download') }}</text>
 					</view>
@@ -87,14 +89,14 @@
 </template>
 
 <script setup>
-import { ref, computed, getCurrentInstance, onMounted, onUnmounted } from 'vue'
+import { ref, computed, getCurrentInstance, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { isFavorite, toggleFavorite } from '@/utils/favorites'
 import { getLookVideo, setLookVideo } from '@/utils/look-video'
 import { getLookMember, setLookMember } from '@/utils/look-member'
 import memberSheet from '@/components/member-sheet/index'
-import { calcFullScrollPageLayout, bindViewportResize } from '@/utils/h5-compat'
+import { calcFullScrollPageLayout, bindViewportResize, shouldUseIosNativeVideoControls, patchNativeVideoControlsForIOS } from '@/utils/h5-compat'
 
 const { t } = useI18n()
 const { proxy } = getCurrentInstance()
@@ -126,6 +128,7 @@ const detail = ref({
 })
 
 const showMemberSheet = ref(false)
+const useIosNativeControls = ref(false)
 
 const progressPercent = computed(() => {
 	if (!duration.value) return 0
@@ -180,6 +183,18 @@ const buildVideoUrl = (item) => {
 	return ''
 }
 
+const detectVideoPlatform = () => {
+	// #ifdef H5
+	useIosNativeControls.value = shouldUseIosNativeVideoControls()
+	// #endif
+}
+
+const patchVideoControls = () => {
+	// #ifdef H5
+	nextTick(() => patchNativeVideoControlsForIOS(VIDEO_ID))
+	// #endif
+}
+
 const loadDetail = async (id) => {
 	const res = await proxy.$http.get('/api/videos/'+id)
 	detail.value = {
@@ -192,6 +207,7 @@ const loadDetail = async (id) => {
 		play_url: baseUrl+res.play_url,
 	}
 	favorited.value = isFavorite(res.id)
+	patchVideoControls()
 	// const cache = uni.getStorageSync('videoDetailCache')
 	// if (cache && String(cache.id) === String(id)) {
 	// 	detail.value = {
@@ -221,6 +237,11 @@ const onTimeUpdate = (e) => {
 
 const onVideoError = () => {
 	// uni.showToast({ title: '视频加载失败', icon: 'none' })
+}
+
+const onVideoPlay = () => {
+	playing.value = true
+	setLookVideo(detail.value)
 }
 
 const handleBack = () => {
@@ -397,10 +418,16 @@ onLoad((options) => {
 })
 
 onMounted(() => {
+	detectVideoPlatform()
 	calcLayout()
+	patchVideoControls()
 	// #ifdef H5
 	unbindViewport = bindViewportResize(calcLayout)
 	// #endif
+})
+
+watch(() => detail.value.play_url, () => {
+	patchVideoControls()
 })
 
 onUnload(() => {
@@ -452,7 +479,7 @@ onUnmounted(() => {
 }
 
 .back-icon {
-	font-size: 56rpx;
+	font-size: 86rpx;
 	color: #C9A86C;
 	line-height: 1;
 	font-weight: 200;
@@ -486,11 +513,20 @@ onUnmounted(() => {
 	border: 1rpx solid rgba(191, 149, 102, 0.25);
 }
 
+.player-wrap--ios {
+	overflow: visible;
+}
+
 .player-video {
 	width: 100%;
 	height: 420rpx;
 	display: block;
 	background: #000;
+}
+
+.player-video--ios {
+	border-radius: 20rpx;
+	object-fit: contain;
 }
 
 .player-mask {
@@ -621,6 +657,11 @@ onUnmounted(() => {
 .action-btn--outline {
 	border: 1rpx solid rgba(191, 149, 102, 0.45);
 	background: rgba(191, 149, 102, 0.08);
+}
+
+.action-btn--full {
+	flex: 1;
+	width: 100%;
 }
 
 .action-icon {
