@@ -1,7 +1,8 @@
 <template>
   <view class="page">
     <view class="browser" :style="{ paddingTop: statusBarHeight + 'px' }">
-      <scroll-view class="scroll-body" scroll-y :style="{ height: scrollHeight + 'px' }">
+    <!-- :style="{ height: scrollHeight + 'px' }" -->
+      <scroll-view class="scroll-body" scroll-y >
         <view class="content">
           <view class="page-header">
             <text class="page-title">{{ t('payment.confirmTitle') }}</text>
