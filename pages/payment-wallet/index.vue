@@ -1,6 +1,6 @@
 <template>
 	<view class="page">
-		<view class="main" :style="{ paddingTop: statusBarHeight + 'px', paddingBottom: safeBottom + 'px' }">
+		<view class="main" :style="mainStyle">
 			<view class="nav-bar">
 				<view class="back-btn" @click="handleBack">
 					<text class="back-icon">‹</text>
@@ -11,43 +11,47 @@
 				<text class="page-title">{{ t('paymentWallet.title') }}</text>
 				<text class="page-sub">{{ t('paymentWallet.subtitle') }}</text>
 			</view>
-
-			<view class="amount-card">
-				<text class="amount-label">{{ t('paymentWallet.amountDue') }}</text>
-				<text class="amount-value">{{ order.total }} USDT</text>
-				<text v-if="orderExpired" class="amount-expired">{{ t('paymentWallet.orderExpiredHint') }}</text>
-			</view>
-
-			<view class="wallet-grid">
-				<view
-					v-for="wallet in wallets"
-					:key="wallet.id"
-					class="wallet-item"
-					:class="{ 'wallet-item--active': selectedWallet === wallet.id }"
-					@click="selectedWallet = wallet.id"
-				>
-					<view class="wallet-icon" :style="{ background: wallet.bg }">
-						<text class="wallet-icon-text">{{ wallet.abbr }}</text>
-					</view>
-					<text class="wallet-name">{{ wallet.name }}</text>
+			<!-- :style="{ height: scrollHeight + 'px' }"-->
+			<scroll-view class="scroll-body" scroll-y>
+				<view class="amount-card">
+					<text class="amount-label">{{ t('paymentWallet.amountDue') }}</text>
+					<text class="amount-value">{{ order.total }} USDT</text>
+					<text v-if="orderExpired" class="amount-expired">{{ t('paymentWallet.orderExpiredHint') }}</text>
 				</view>
-			</view>
 
-			<view class="spacer" />
+				<view class="wallet-grid">
+					<view
+						v-for="wallet in wallets"
+						:key="wallet.id"
+						class="wallet-item"
+						:class="{ 'wallet-item--active': selectedWallet === wallet.id }"
+						@click="selectedWallet = wallet.id"
+					>
+						<view class="wallet-icon" :style="{ background: wallet.bg }">
+							<text class="wallet-icon-text">{{ wallet.abbr }}</text>
+						</view>
+						<text class="wallet-name">{{ wallet.name }}</text>
+					</view>
+				</view>
 
-			<view
-				class="footer-btn"
-				:class="{ 'footer-btn--disabled': opening || orderExpired }"
-				@click="handlePay"
-			>
-				<text class="footer-btn-text">{{ opening ? t('paymentWallet.connecting') : t('paymentWallet.openWalletToPay') }}</text>
+				<view class="bottom-space" :style="{ height: bottomSpaceHeight + 'px' }" />
+			</scroll-view>
+
+			<view class="footer">
+				<view
+					class="footer-btn"
+					:class="{ 'footer-btn--disabled': opening || orderExpired }"
+					@click="handlePay"
+				>
+					<text class="footer-btn-text">{{ opening ? t('paymentWallet.connecting') : t('paymentWallet.openWalletToPay') }}</text>
+				</view>
 			</view>
 		</view>
 	</view>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { useI18n } from 'vue-i18n'
 import { 
@@ -56,8 +60,14 @@ import {
 	buildPaymentReturnUrl, 
 	markOrderPaymentCompleted 
 } from '@/utils/tron-pay'
+import { calcFixedFooterPageLayout, bindViewportResize } from '@/utils/h5-compat'
 
 const { t } = useI18n()
+
+/** nav(80) + page-head(≈140) + 缓冲 */
+const HEADER_BLOCK_RPX = 220
+const FOOTER_BLOCK_RPX = 152
+const SCROLL_END_RPX = 32
 
 const toWalletInfo = (wallet) => ({
 	id: wallet.id,
@@ -66,7 +76,9 @@ const toWalletInfo = (wallet) => ({
 })
 
 const statusBarHeight = ref(0)
-const safeBottom = ref(0)
+const mainHeight = ref(0)
+const scrollHeight = ref(0)
+const bottomSpaceHeight = ref(32)
 const selectedWallet = ref('')
 const opening = ref(false)
 const order = ref({ total: '1.00', expireAt: 0 })
@@ -87,11 +99,24 @@ const WALLET_DOWNLOAD = {
 
 const orderExpired = computed(() => isOrderExpired(order.value))
 
+const mainStyle = computed(() => ({
+	paddingTop: `${statusBarHeight.value}px`,
+	height: mainHeight.value ? `${mainHeight.value}px` : '100vh'
+}))
+
 const calcLayout = () => {
-	const sys = uni.getSystemInfoSync()
-	statusBarHeight.value = sys.statusBarHeight || 0
-	safeBottom.value = sys.safeAreaInsets?.bottom || 0
+	const layout = calcFixedFooterPageLayout({
+		headerBlockRpx: HEADER_BLOCK_RPX,
+		footerBlockRpx: FOOTER_BLOCK_RPX,
+		scrollEndRpx: SCROLL_END_RPX
+	})
+	statusBarHeight.value = layout.statusBarHeight
+	mainHeight.value = layout.mainHeight
+	scrollHeight.value = layout.scrollHeight
+	bottomSpaceHeight.value = layout.bottomSpaceHeight
 }
+
+let unbindViewport = null
 
 const loadOrder = () => {
 	const data = uni.getStorageSync('pendingOrder')
@@ -138,12 +163,13 @@ const handleBack = () => {
 const checkPaymentSuccessReturn = () => {
 	// #ifdef H5
 	if (typeof window === 'undefined') return
-	const hash = window.location.hash || ''
-	if (!/[?&]paymentSuccess=1(?:&|$)/.test(hash)) return
+	const query = parseH5RouteQuery()
+	if (query.paymentSuccess !== '1' && !/[?&]paymentSuccess=1(?:&|$)/.test(window.location.hash || '')) return
 
 	markOrderPaymentCompleted()
 	order.value = { ...order.value, expireAt: 0 }
 	uni.showToast({ title: t('common.paymentSuccess'), icon: 'success' })
+	const hash = window.location.hash || ''
 	const cleanedHash = hash
 		.replace(/([?&])paymentSuccess=1&/, '$1')
 		.replace(/([?&])paymentSuccess=1$/, '')
@@ -201,22 +227,41 @@ const handlePay = async () => {
 
 onMounted(() => {
 	calcLayout()
+	// #ifdef H5
+	unbindViewport = bindViewportResize(calcLayout)
+	// #endif
 	loadOrder()
+})
+
+onUnmounted(() => {
+	// #ifdef H5
+	unbindViewport?.()
+	// #endif
 })
 </script>
 
 <style>
 .page {
 	min-height: 100vh;
+	min-height: calc(var(--vh, 1vh) * 100);
+	min-height: -webkit-fill-available;
 	background: #000;
 }
 
 .main {
-	min-height: 100vh;
+	height: 100vh;
+	height: calc(var(--vh, 1vh) * 100);
+	height: -webkit-fill-available;
 	display: flex;
 	flex-direction: column;
-	padding: 0 24rpx 32rpx;
+	overflow: hidden;
+	padding: 0 24rpx;
 	box-sizing: border-box;
+}
+
+.scroll-body {
+	flex: 1;
+	width: 100%;
 }
 
 .nav-bar {
@@ -335,9 +380,16 @@ onMounted(() => {
 	font-weight: 500;
 }
 
-.spacer {
-	flex: 1;
-	min-height: 40rpx;
+.bottom-space {
+	flex-shrink: 0;
+}
+
+.footer {
+	flex-shrink: 0;
+	padding: 16rpx 0;
+	padding-bottom: calc(40rpx + constant(safe-area-inset-bottom));
+	padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+	background: linear-gradient(180deg, transparent 0%, #000 30%);
 }
 
 .footer-btn {
@@ -348,7 +400,6 @@ onMounted(() => {
 	align-items: center;
 	justify-content: center;
 	box-shadow: 0 8rpx 24rpx rgba(191, 149, 102, 0.35);
-	margin-bottom: 40rpx;
 }
 
 .footer-btn--disabled {

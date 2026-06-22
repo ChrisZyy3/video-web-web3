@@ -91,7 +91,7 @@
 				</view>
 			</view> -->
 
-			<view class="bottom-space" />
+			<view class="bottom-space" :style="{ height: bottomSpaceHeight + 'px' }" />
 		</scroll-view>
 		
 		<tabbar />
@@ -101,18 +101,23 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import tabbar from '@/components/tabbar/index'
 import memberSheet from '@/components/member-sheet/index'
+import { getMobilePageLayout, getTabbarInsetPx, bindViewportResize } from '@/utils/h5-compat'
 
 const { t, locale } = useI18n()
+
+const TABBAR_CONTENT_RPX = 110
+const BULGE_EXTRA_RPX = 36
 
 const domainUrl = 'http://www.xxx.com/xxx/xxx'
 const defaultAvatar = '/static/images/default-avatar.svg'
 
 const statusBarHeight = ref(0)
 const scrollHeight = ref(0)
+const bottomSpaceHeight = ref(60)
 const showMemberSheet = ref(false)
 
 const currentLangLabel = computed(() =>
@@ -147,10 +152,13 @@ function qrcodeSvg() {
 }
 
 const calcLayout = () => {
-	const sys = uni.getSystemInfoSync()
-	statusBarHeight.value = sys.statusBarHeight || 0
-	scrollHeight.value = sys.windowHeight || sys.screenHeight
+	const layout = getMobilePageLayout()
+	statusBarHeight.value = layout.statusBarHeight
+	scrollHeight.value = layout.windowHeight
+	bottomSpaceHeight.value = getTabbarInsetPx(TABBAR_CONTENT_RPX, BULGE_EXTRA_RPX)
 }
+
+let unbindViewport = null
 
 const handleLogout = () => {
 	uni.showToast({ title: t('mine.loggedOut'), icon: 'none' })
@@ -204,12 +212,23 @@ const handleCopyDomain = () => {
 
 onMounted(() => {
 	calcLayout()
+	// #ifdef H5
+	unbindViewport = bindViewportResize(calcLayout)
+	// #endif
+})
+
+onUnmounted(() => {
+	// #ifdef H5
+	unbindViewport?.()
+	// #endif
 })
 </script>
 
 <style>
 .page {
 	min-height: 100vh;
+	min-height: calc(var(--vh, 1vh) * 100);
+	min-height: -webkit-fill-available;
 	background: #000;
 }
 
@@ -520,6 +539,6 @@ onMounted(() => {
 }
 
 .bottom-space {
-	height: 40rpx;
+	flex-shrink: 0;
 }
 </style>

@@ -1,6 +1,6 @@
 <template>
 	<view class="page">
-		<view class="main" :style="{ paddingTop: statusBarHeight + 'px' }">
+		<view class="main" :style="mainStyle">
 			<!--<view class="top-bar">
 				<view class="brand">
 					<view class="brand-icon">
@@ -23,8 +23,8 @@
 				<text class="page-title">{{ t('orderConfirm.title') }}</text>
 				<text class="page-sub">{{ t('orderConfirm.subtitle') }}</text>
 			</view>
-
-			<scroll-view class="scroll-body" scroll-y :style="{ height: scrollHeight + 'px' }">
+			<!-- :style="{ height: scrollHeight + 'px' }"-->
+			<scroll-view class="scroll-body" scroll-y>
 				<view class="amount-card">
 					<text class="amount-value">
 					{{ order.total }} USDT
@@ -63,10 +63,10 @@
 								<text class="detail-label">{{ t('orderConfirm.quantity') }}</text>
 								<text class="detail-value">{{ order.quantity }}</text>
 							</view>
-						</view>
-						<view class="detail-row-full">
-							<text class="detail-label">{{ t('orderConfirm.orderNo') }}</text>
-							<text class="detail-value detail-value--sm">{{ order.orderNo }}</text>
+							<view class="detail-cell">
+								<text class="detail-label">{{ t('orderConfirm.orderNo') }}</text>
+								<text class="detail-value">{{ order.orderNo }}</text>
+							</view>
 						</view>
 					</view>
 				</view>
@@ -96,10 +96,9 @@
 					</view>
 				</view -->>
 
-				<view class="bottom-space" />
+				<view class="bottom-space" :style="{ height: bottomSpaceHeight + 'px' }" />
 			</scroll-view>
-
-			<view class="footer" :style="{ paddingBottom: safeBottom + 'px' }">
+			<view class="footer">
 				<view class="footer-btn" @click="handleNext">
 					<text class="footer-btn-text">{{ t('orderConfirm.nextConfirm') }}</text>
 				</view>
@@ -111,12 +110,18 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { calcFixedFooterPageLayout, bindViewportResize } from '@/utils/h5-compat'
 
 const { t } = useI18n()
 
+const HEADER_BLOCK_RPX = 220
+const FOOTER_BLOCK_RPX = 152
+const SCROLL_END_RPX = 32
+
 const statusBarHeight = ref(0)
+const mainHeight = ref(0)
 const scrollHeight = ref(0)
-const safeBottom = ref(0)
+const bottomSpaceHeight = ref(32)
 const countdown = ref('30:00')
 const order = ref({
 	orderNo: '',
@@ -137,6 +142,11 @@ const payAmount = computed(() => {
 	return val.toFixed(2)
 })
 
+const mainStyle = computed(() => ({
+	paddingTop: `${statusBarHeight.value}px`,
+	height: mainHeight.value ? `${mainHeight.value}px` : '100vh'
+}))
+
 const icons = {
 	shield: svgIcon('<path d="M12 3l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V7l8-4z"/><path d="M9 12l2 2 4-4"/>', '#1A1A1A', '#BF9566'),
 	headset: svgIcon('<path d="M4 14v-4a8 8 0 0116 0v4"/><rect x="2" y="14" width="5" height="6" rx="2"/><rect x="17" y="14" width="5" height="6" rx="2"/>', '#8B867C'),
@@ -154,13 +164,18 @@ function svgIcon(paths, color, fill = 'none') {
 }
 
 const calcLayout = () => {
-	const sys = uni.getSystemInfoSync()
-	statusBarHeight.value = sys.statusBarHeight || 0
-	safeBottom.value = sys.safeAreaInsets?.bottom || 0
-	const footerH = uni.upx2px(120) + safeBottom.value
-	const topH = uni.upx2px(200) + statusBarHeight.value
-	scrollHeight.value = sys.windowHeight - topH - footerH
+	const layout = calcFixedFooterPageLayout({
+		headerBlockRpx: HEADER_BLOCK_RPX,
+		footerBlockRpx: FOOTER_BLOCK_RPX,
+		scrollEndRpx: SCROLL_END_RPX
+	})
+	statusBarHeight.value = layout.statusBarHeight
+	mainHeight.value = layout.mainHeight
+	scrollHeight.value = layout.scrollHeight
+	bottomSpaceHeight.value = layout.bottomSpaceHeight
 }
+
+let unbindViewport = null
 
 const loadOrder = () => {
 	const data = uni.getStorageSync('pendingOrder')
@@ -197,6 +212,9 @@ const handleNext = () => {
 
 onMounted(() => {
 	calcLayout()
+	// #ifdef H5
+	unbindViewport = bindViewportResize(calcLayout)
+	// #endif
 	loadOrder()
 	updateCountdown()
 	timer = setInterval(updateCountdown, 1000)
@@ -204,20 +222,29 @@ onMounted(() => {
 
 onUnmounted(() => {
 	if (timer) clearInterval(timer)
+	// #ifdef H5
+	unbindViewport?.()
+	// #endif
 })
 </script>
 
 <style>
 .page {
 	min-height: 100vh;
+	min-height: calc(var(--vh, 1vh) * 100);
+	min-height: -webkit-fill-available;
 	background: #000;
 }
 
 .main {
-	min-height: 100vh;
+	height: 100vh;
+	height: calc(var(--vh, 1vh) * 100);
+	height: -webkit-fill-available;
 	display: flex;
 	flex-direction: column;
-	padding: 0 0.75rem 1rem;
+	overflow: hidden;
+	padding: 0 24rpx 0;
+	box-sizing: border-box;
 }
 
 .top-bar {
@@ -316,8 +343,8 @@ onUnmounted(() => {
 }
 
 .scroll-body {
-	flex: 1;
-	padding: 0 24rpx;
+	flex-shrink: 0;
+	width: 100%;
 	box-sizing: border-box;
 }
 
@@ -386,12 +413,14 @@ onUnmounted(() => {
 
 .timer-content {
 	margin-left: 16rpx;
+	
 }
 
 .timer-label {
 	display: block;
 	font-size: 24rpx;
 	color: #8B867C;
+	text-align: left
 }
 
 .timer-value {
@@ -428,6 +457,7 @@ onUnmounted(() => {
 .detail-cell {
 	width: 50%;
 	margin-bottom: 20rpx;
+	text-align: left;
 }
 
 .detail-label {
@@ -537,11 +567,14 @@ onUnmounted(() => {
 }
 
 .bottom-space {
-	height: 32rpx;
+	flex-shrink: 0;
 }
 
 .footer {
-	padding: 16rpx 24rpx 0;
+	flex-shrink: 0;
+	padding: 16rpx 0;
+	padding-bottom: calc(40rpx + constant(safe-area-inset-bottom));
+	padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
 	background: linear-gradient(180deg, transparent 0%, #000 30%);
 }
 
@@ -553,7 +586,6 @@ onUnmounted(() => {
 	align-items: center;
 	justify-content: center;
 	box-shadow: 0 8rpx 24rpx rgba(191, 149, 102, 0.35);
-	margin-bottom: 40rpx
 }
 
 .footer-btn-text {

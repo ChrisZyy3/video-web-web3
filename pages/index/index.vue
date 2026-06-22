@@ -124,7 +124,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, getCurrentInstance } from 'vue'
+import { ref, computed, onMounted, onUnmounted, getCurrentInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { onShow } from '@dcloudio/uni-app'
 import tabbar from '@/components/tabbar/index'
@@ -134,6 +134,7 @@ import memberSheet from '@/components/member-sheet/index'
 import { getFavorites, toggleFavorite } from '@/utils/favorites'
 import { getLookVideo, setLookVideo, removeLookVideo } from '@/utils/look-video'
 import { getLookMember, setLookMember } from '@/utils/look-member'
+import { getMobilePageLayout, getTabbarInsetPx, bindViewportResize } from '@/utils/h5-compat'
 
 const { t } = useI18n()
 const { proxy } = getCurrentInstance()
@@ -228,17 +229,13 @@ function svgIcon(paths, color, fill = 'none') {
 }
 
 const calcLayout = () => {
-  const sys = uni.getSystemInfoSync()
-  statusBarHeight.value = sys.statusBarHeight || 0
-  scrollHeight.value = sys.windowHeight || sys.screenHeight
-
-  let insetBottom = sys.safeAreaInsets?.bottom || 0
-  if (insetBottom === 0 && sys.safeArea && sys.screenHeight) {
-    insetBottom = Math.max(sys.screenHeight - sys.safeArea.bottom, 0)
-  }
-  const rpxToPx = (sys.windowWidth || 375) / 750
-  bottomSpaceHeight.value = Math.ceil((TABBAR_CONTENT_RPX + BULGE_EXTRA_RPX) * rpxToPx) + insetBottom
+  const layout = getMobilePageLayout()
+  statusBarHeight.value = layout.statusBarHeight
+  scrollHeight.value = layout.windowHeight
+  bottomSpaceHeight.value = getTabbarInsetPx(TABBAR_CONTENT_RPX, BULGE_EXTRA_RPX)
 }
+
+let unbindViewport = null
 
 const handleMenu = () => {
   uni.showToast({ title: t('index.menu'), icon: 'none' })
@@ -315,9 +312,18 @@ const handleMemberRecharge = () => {
 
 onMounted(() => {
   calcLayout()
+  // #ifdef H5
+  unbindViewport = bindViewportResize(calcLayout)
+  // #endif
   syncFavorites()
   getList()
   showMemberIntro.value = true
+})
+
+onUnmounted(() => {
+  // #ifdef H5
+  unbindViewport?.()
+  // #endif
 })
 
 onShow(() => {
@@ -328,6 +334,8 @@ onShow(() => {
 <style>
 .page {
   min-height: 100vh;
+  min-height: calc(var(--vh, 1vh) * 100);
+  min-height: -webkit-fill-available;
   background: #121212;
 }
 

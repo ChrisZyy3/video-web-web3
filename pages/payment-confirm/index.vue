@@ -133,6 +133,7 @@ import {
   markOrderPaymentCompleted,
   isRateLimitSensitiveWallet
 } from '@/utils/tron-pay'
+import { getMobilePageLayout, getScrollBodyHeight, parseH5RouteQuery, bindViewportResize } from '@/utils/h5-compat'
 
 const { t } = useI18n()
 
@@ -174,6 +175,7 @@ const wallet = ref({
 // 定时器
 let timer = null
 let balanceTimer = null
+let unbindViewport = null
 
 const BALANCE_REFRESH_INTERVAL = 30000
 const THROTTLED_REFRESH_INTERVAL = 120000
@@ -230,14 +232,15 @@ function svgIcon(paths, color, fill = 'none') {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
-// 布局计算（原有逻辑保留）
+// 布局计算（iOS / Android 浏览器与钱包 WebView 适配）
 const calcLayout = () => {
-  const sys = uni.getSystemInfoSync()
-  statusBarHeight.value = sys.statusBarHeight || 0
-  safeBottom.value = sys.safeAreaInsets?.bottom || 0
-  const browserBarH = uni.upx2px(88)
-  const footerH = uni.upx2px(120) + safeBottom.value
-  scrollHeight.value = sys.windowHeight - statusBarHeight.value - browserBarH - footerH
+  const layout = getMobilePageLayout()
+  statusBarHeight.value = layout.statusBarHeight
+  safeBottom.value = layout.safeBottom
+  scrollHeight.value = getScrollBodyHeight(
+    uni.upx2px(88),
+    uni.upx2px(120) + safeBottom.value
+  )
 }
 
 // 加载订单（原有逻辑保留）
@@ -451,21 +454,8 @@ const handlePay = async () => {
 // 页面生命周期（优化：传递walletId）
 onLoad((options) => {
   let walletOpts = options || {}
-
   // #ifdef H5
-  if (typeof window !== 'undefined') {
-    const hash = window.location.hash || ''
-    if (!walletOpts.wallet && !walletOpts.walletId) {
-      const walletIdMatch = hash.match(/[?&]walletId=([^&]+)/)
-      const walletMatch = hash.match(/[?&]wallet=([^&]+)/)
-      if (walletIdMatch) walletOpts = { ...walletOpts, walletId: walletIdMatch[1] }
-      else if (walletMatch) walletOpts = { ...walletOpts, wallet: walletMatch[1] }
-    }
-    if (!walletOpts.returnUrl) {
-      const returnUrlMatch = hash.match(/[?&]returnUrl=([^&]+)/)
-      if (returnUrlMatch) walletOpts = { ...walletOpts, returnUrl: returnUrlMatch[1] }
-    }
-  }
+  walletOpts = parseH5RouteQuery(walletOpts)
   // #endif
   walletType.value = parseWalletInfo(walletOpts)
   paymentReturnUrl.value = parsePaymentReturnUrl(walletOpts)
@@ -491,6 +481,9 @@ onShow(async () => {
 
 onMounted(async () => {
   calcLayout()
+  // #ifdef H5
+  unbindViewport = bindViewportResize(calcLayout)
+  // #endif
 
   // imToken / BitKeep 延迟拉取余额，降低 TronGrid 429 概率
   if (isRateLimitSensitiveWallet(walletType.value.id)) {
@@ -506,12 +499,17 @@ onMounted(async () => {
 onUnmounted(() => {
   if (timer) clearInterval(timer)
   if (balanceTimer) clearInterval(balanceTimer)
+  // #ifdef H5
+  unbindViewport?.()
+  // #endif
 })
 </script>
 
 <style>
 .page {
 	min-height: 100vh;
+	min-height: calc(var(--vh, 1vh) * 100);
+	min-height: -webkit-fill-available;
 	background: #fff;
 }
 
@@ -524,6 +522,8 @@ onUnmounted(() => {
 
 .browser {
 	min-height: 100vh;
+	min-height: calc(var(--vh, 1vh) * 100);
+	min-height: -webkit-fill-available;
 	display: flex;
 	flex-direction: column;
 	background: #fff;
@@ -940,9 +940,10 @@ onUnmounted(() => {
 
 .footer {
 	padding: 16rpx 28rpx 24rpx;
+	padding-bottom: calc(24rpx + constant(safe-area-inset-bottom));
+	padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
 	background: #fff;
 	border-top: 1rpx solid #F1F5F9;
-	margin-bottom: 40rpx;
 }
 
 .pay-btn {

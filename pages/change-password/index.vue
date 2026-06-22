@@ -67,9 +67,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formIcons } from '@/utils/form-icons'
+import { getMobilePageLayout, bindViewportResize } from '@/utils/h5-compat'
 
 const { t } = useI18n()
 
@@ -80,9 +81,10 @@ const password = ref('')
 const icons = formIcons
 
 const calcLayout = () => {
-	const sys = uni.getSystemInfoSync()
-	statusBarHeight.value = sys.statusBarHeight || 0
+	statusBarHeight.value = getMobilePageLayout().statusBarHeight
 }
+
+let unbindViewport = null
 
 const handleBack = () => {
 	uni.navigateBack({
@@ -114,6 +116,15 @@ const handleSave = () => {
 
 onMounted(() => {
 	calcLayout()
+	// #ifdef H5
+	unbindViewport = bindViewportResize(calcLayout)
+	// #endif
+})
+
+onUnmounted(() => {
+	// #ifdef H5
+	unbindViewport?.()
+	// #endif
 })
 </script>
 

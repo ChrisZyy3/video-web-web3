@@ -1,6 +1,6 @@
 <template>
 	<view class="page">
-		<view class="main" :style="{ paddingTop: statusBarHeight + 'px' }">
+		<view class="main" :style="mainStyle">
 			<view class="nav-bar">
 				<view class="back-btn" @click="handleBack">
 					<text class="back-icon">‹</text>
@@ -42,7 +42,7 @@
 					</view>
 				</view>
 
-				<view class="progress-bar">
+				<!--<view class="progress-bar">
 					<view class="progress-track">
 						<view class="progress-fill" :style="{ width: progressPercent + '%' }" />
 					</view>
@@ -50,7 +50,7 @@
 						<text class="time-text">{{ formatTime(currentTime) }}</text>
 						<text class="time-text">{{ formatTime(duration) }}</text>
 					</view>
-				</view>
+				</view>-->
 
 				<view class="info-card">
 					<text class="info-title">{{ detail.title }}</text>
@@ -77,7 +77,7 @@
 					<text class="tip-text">{{ t('videoDetail.downloadTip') }}</text>
 				</view>
 
-				<view class="bottom-space" />
+				<view class="bottom-space" :style="{ height: bottomSpaceHeight + 'px' }" />
 			</scroll-view>
 		</view>
 		
@@ -87,13 +87,14 @@
 </template>
 
 <script setup>
-import { ref, computed, getCurrentInstance, onMounted } from 'vue'
+import { ref, computed, getCurrentInstance, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { isFavorite, toggleFavorite } from '@/utils/favorites'
 import { getLookVideo, setLookVideo } from '@/utils/look-video'
 import { getLookMember, setLookMember } from '@/utils/look-member'
 import memberSheet from '@/components/member-sheet/index'
+import { calcFullScrollPageLayout, bindViewportResize } from '@/utils/h5-compat'
 
 const { t } = useI18n()
 const { proxy } = getCurrentInstance()
@@ -102,8 +103,13 @@ const baseUrl = proxy.$baseUrl
 const VIDEO_ID = 'detailVideo'
 const HEART_PATH = '<path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>'
 
+const NAV_BAR_RPX = 88
+const SCROLL_BOTTOM_RPX = 40
+
 const statusBarHeight = ref(0)
+const mainHeight = ref(0)
 const scrollHeight = ref(0)
+const bottomSpaceHeight = ref(40)
 const playing = ref(false)
 const favorited = ref(false)
 const currentTime = ref(0)
@@ -125,6 +131,11 @@ const progressPercent = computed(() => {
 	if (!duration.value) return 0
 	return Math.min(100, (currentTime.value / duration.value) * 100)
 })
+
+const mainStyle = computed(() => ({
+	paddingTop: `${statusBarHeight.value}px`,
+	height: mainHeight.value ? `${mainHeight.value}px` : '100vh'
+}))
 
 const heartIcon = computed(() => {
 	if (favorited.value) {
@@ -149,11 +160,17 @@ function svgIcon(paths, color, fill = 'none') {
 const getCtx = () => uni.createVideoContext(VIDEO_ID)
 
 const calcLayout = () => {
-	const sys = uni.getSystemInfoSync()
-	statusBarHeight.value = sys.statusBarHeight || 0
-	const navH = uni.upx2px(88)
-	scrollHeight.value = sys.windowHeight - statusBarHeight.value - navH
+	const layout = calcFullScrollPageLayout({
+		headerBlockRpx: NAV_BAR_RPX,
+		scrollBottomRpx: SCROLL_BOTTOM_RPX
+	})
+	statusBarHeight.value = layout.statusBarHeight
+	mainHeight.value = layout.mainHeight
+	scrollHeight.value = layout.scrollHeight
+	bottomSpaceHeight.value = layout.bottomSpaceHeight
 }
+
+let unbindViewport = null
 
 const buildVideoUrl = (item) => {
 	if (item.play_url) {
@@ -381,26 +398,42 @@ onLoad((options) => {
 
 onMounted(() => {
 	calcLayout()
+	// #ifdef H5
+	unbindViewport = bindViewportResize(calcLayout)
+	// #endif
 })
 
 onUnload(() => {
 	getCtx().pause()
+})
+
+onUnmounted(() => {
+	// #ifdef H5
+	unbindViewport?.()
+	// #endif
 })
 </script>
 
 <style>
 .page {
 	min-height: 100vh;
+	min-height: calc(var(--vh, 1vh) * 100);
+	min-height: -webkit-fill-available;
 	background: #121212;
 }
 
 .main {
-	min-height: 100vh;
+	height: 100vh;
+	height: calc(var(--vh, 1vh) * 100);
+	height: -webkit-fill-available;
 	display: flex;
 	flex-direction: column;
+	overflow: hidden;
+	box-sizing: border-box;
 }
 
 .nav-bar {
+	flex-shrink: 0;
 	height: 88rpx;
 	padding: 0 24rpx;
 	display: flex;
@@ -439,7 +472,8 @@ onUnload(() => {
 }
 
 .scroll-body {
-	flex: 1;
+	flex-shrink: 0;
+	width: 100%;
 	box-sizing: border-box;
 }
 
@@ -631,6 +665,6 @@ onUnload(() => {
 }
 
 .bottom-space {
-	height: 40rpx;
+	flex-shrink: 0;
 }
 </style>

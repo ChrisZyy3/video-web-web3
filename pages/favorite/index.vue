@@ -30,7 +30,7 @@
         <text class="empty-text">{{ t('favorite.empty') }}</text>
       </view>
 
-      <view class="bottom-space" />
+      <view class="bottom-space" :style="{ height: bottomSpaceHeight + 'px' }" />
     </scroll-view>
 
     <tabbar />
@@ -38,19 +38,24 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { onShow } from '@dcloudio/uni-app'
 import tabbar from '@/components/tabbar/index'
 import videoCard from '@/components/video-card/index'
 import { getFavorites, toggleFavorite } from '@/utils/favorites'
+import { getMobilePageLayout, getTabbarInsetPx, bindViewportResize } from '@/utils/h5-compat'
 
 const { t } = useI18n()
+
+const TABBAR_CONTENT_RPX = 110
+const BULGE_EXTRA_RPX = 36
 
 const COVER_SRC = '/static/images/video-cover.png'
 
 const statusBarHeight = ref(0)
 const scrollHeight = ref(0)
+const bottomSpaceHeight = ref(60)
 const gridCards = ref([])
 
 const loadFavorites = () => {
@@ -58,10 +63,13 @@ const loadFavorites = () => {
 }
 
 const calcLayout = () => {
-  const sys = uni.getSystemInfoSync()
-  statusBarHeight.value = sys.statusBarHeight || 0
-  scrollHeight.value = sys.windowHeight || sys.screenHeight
+  const layout = getMobilePageLayout()
+  statusBarHeight.value = layout.statusBarHeight
+  scrollHeight.value = layout.windowHeight
+  bottomSpaceHeight.value = getTabbarInsetPx(TABBAR_CONTENT_RPX, BULGE_EXTRA_RPX)
 }
+
+let unbindViewport = null
 
 const handleBack = () => {
   uni.navigateBack()
@@ -97,7 +105,16 @@ const handleCard = (item) => {
 
 onMounted(() => {
   calcLayout()
+  // #ifdef H5
+  unbindViewport = bindViewportResize(calcLayout)
+  // #endif
   loadFavorites()
+})
+
+onUnmounted(() => {
+  // #ifdef H5
+  unbindViewport?.()
+  // #endif
 })
 
 onShow(() => {
@@ -108,6 +125,8 @@ onShow(() => {
 <style>
 .page {
   min-height: 100vh;
+  min-height: calc(var(--vh, 1vh) * 100);
+  min-height: -webkit-fill-available;
   background: #121212;
 }
 
@@ -313,6 +332,6 @@ onShow(() => {
 }
 
 .bottom-space {
-  height: 24rpx;
+  flex-shrink: 0;
 }
 </style>

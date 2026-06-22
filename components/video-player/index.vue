@@ -26,7 +26,8 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { getMobilePageLayout, bindViewportResize } from '@/utils/h5-compat'
 
 const props = defineProps({
   visible: {
@@ -85,9 +86,23 @@ const handleClose = () => {
 	emit('close')
 }
 
+const updateCloseTop = () => {
+  closeTop.value = getMobilePageLayout().statusBarHeight + 10
+}
+
+let unbindViewport = null
+
 onMounted(() => {
-  const sys = uni.getSystemInfoSync()
-  closeTop.value = (sys.statusBarHeight || 0) + 10
+  updateCloseTop()
+  // #ifdef H5
+  unbindViewport = bindViewportResize(updateCloseTop)
+  // #endif
+})
+
+onUnmounted(() => {
+  // #ifdef H5
+  unbindViewport?.()
+  // #endif
 })
 
 watch(() => props.visible, (val) => {

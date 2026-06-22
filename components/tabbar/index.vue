@@ -44,9 +44,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { onShow } from '@dcloudio/uni-app'
+import { getMobilePageLayout, bindViewportResize } from '@/utils/h5-compat'
 
 const { t } = useI18n()
 
@@ -84,15 +85,13 @@ const placeholderHeight = ref(60)
 const currentPath = ref('')
 
 const calcSafeArea = () => {
-  const { safeAreaInsets, windowWidth, screenHeight, safeArea } = uni.getSystemInfoSync()
-  let insetBottom = safeAreaInsets?.bottom || 0
-  if (insetBottom === 0 && safeArea && screenHeight) {
-    insetBottom = Math.max(screenHeight - safeArea.bottom, 0)
-  }
-  safeBottom.value = insetBottom
-  const rpxToPx = windowWidth / 750
+  const layout = getMobilePageLayout()
+  const rpxToPx = layout.windowWidth / 750
+  safeBottom.value = layout.safeBottom
   placeholderHeight.value = Math.ceil((TABBAR_CONTENT_RPX + BULGE_EXTRA_RPX) * rpxToPx)
 }
+
+let unbindViewport = null
 
 const activeHandler = () => {
   const pages = getCurrentPages()
@@ -112,7 +111,16 @@ const goUrl = (item, index) => {
 
 onMounted(() => {
   calcSafeArea()
+  // #ifdef H5
+  unbindViewport = bindViewportResize(calcSafeArea)
+  // #endif
   activeHandler()
+})
+
+onUnmounted(() => {
+  // #ifdef H5
+  unbindViewport?.()
+  // #endif
 })
 
 onShow(() => {

@@ -16,6 +16,30 @@ onHide(() => {
 
 <style>
 	/*每个页面公共css */
+	/* #ifdef H5 */
+	html,
+	body,
+	#app {
+		width: 100%;
+		min-height: 100%;
+		margin: 0;
+		padding: 0;
+		-webkit-text-size-adjust: 100%;
+		text-size-adjust: 100%;
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	body {
+		overscroll-behavior-y: none;
+	}
+
+	.page {
+		min-height: 100vh;
+		min-height: calc(var(--vh, 1vh) * 100);
+		min-height: -webkit-fill-available;
+	}
+	/* #endif */
+
 	.row{
 		display:flex
 	}
