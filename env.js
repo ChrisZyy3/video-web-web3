@@ -3,7 +3,7 @@ const env = {
   // 开发环境
   dev: 'http://47.250.52.230:12005',
   // 生产环境
-  prod: 'https://api.xxx.com'
+  prod: 'http://47.250.52.230:12005'
 }
 
 // 判断环境 uniapp自带判断

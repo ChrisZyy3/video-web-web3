@@ -221,7 +221,7 @@ onUnmounted(() => {
 }
 
 .back-icon {
-	font-size: 56rpx;
+	font-size: 86rpx;
 	color: #C9A86C;
 	line-height: 1;
 	font-weight: 200;

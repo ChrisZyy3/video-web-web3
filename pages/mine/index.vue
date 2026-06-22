@@ -36,7 +36,7 @@
 								<text class="info-value">v1.0.68.102</text>
 							</view>
 						</view>
-						<view class="info-grid">
+						<!--<view class="info-grid">
 							<view class="info-cell info-cell--lang" @click="handleLanguage">
 								<text class="info-label">{{ t('mine.language') }}</text>
 								<view class="info-cell-value">
@@ -44,7 +44,7 @@
 									<text class="arrow-icon">›</text>
 								</view>
 							</view>
-						</view>
+						</view>-->
 					</view>
 					<!--<view class="logout-btn" @click="handleLogout">
 						<image class="logout-icon" :src="icons.logout" mode="aspectFit" />
