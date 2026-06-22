@@ -83,7 +83,7 @@ export default {
     play: '播放',
     pause: '暂停',
     download: '下载',
-    downloadTip: '下载时请保持网络稳定。部分浏览器需长按视频才能保存。',
+    downloadTip: '下载时请保持网络稳定。',
     savedToAlbum: '已保存到相册',
     saveFailed: '保存失败，请检查相册权限',
     downloadStarted: '开始下载',

@@ -1,6 +1,6 @@
 <template>
 	<view class="page">
-		<view class="main" :style="{ paddingTop: statusBarHeight + 'px' }">
+		<view class="page-shell" :style="{ paddingTop: statusBarHeight + 'px' }">
 			<view class="nav-bar">
 				<view class="back-btn" @click="handleBack">
 					<text class="back-icon">‹</text>
@@ -22,34 +22,18 @@
 						:loop="false"
 						:muted="false"
 						:playsinline="true"
-						:show-center-play-btn="false"
-						:show-play-btn="false"
+						:controls="true"
+						:show-center-play-btn="true"
+						:show-play-btn="true"
 						:show-fullscreen-btn="true"
 						:show-progress="true"
-						:controls="false"
 						:enable-progress-gesture="true"
 						object-fit="contain"
 						@play="playing = true"
 						@pause="playing = false"
 						@ended="playing = false"
-						@timeupdate="onTimeUpdate"
 						@error="onVideoError"
 					/>
-					<view v-if="!playing" class="player-mask" @click="handleTogglePlay">
-						<view class="player-play-btn">
-							<image class="player-play-icon" :src="icons.play" mode="aspectFit" />
-						</view>
-					</view>
-				</view>
-
-				<view class="progress-bar">
-					<view class="progress-track">
-						<view class="progress-fill" :style="{ width: progressPercent + '%' }" />
-					</view>
-					<view class="progress-time">
-						<text class="time-text">{{ formatTime(currentTime) }}</text>
-						<text class="time-text">{{ formatTime(duration) }}</text>
-					</view>
 				</view>
 
 				<view class="info-card">
@@ -68,13 +52,19 @@
 					</view>
 					<view class="action-btn action-btn--outline" @click="handleDownload">
 						<image class="action-icon" :src="icons.download" mode="aspectFit" />
-						<text class="action-text action-text--gold">{{ t('videoDetail.download') }}</text>
+						<text class="action-text action-text--gold">{{ downloadBtnText }}</text>
+					</view>
+				</view>
+
+				<view v-if="downloading" class="download-progress">
+					<view class="download-progress-track">
+						<view class="download-progress-fill" :style="{ width: downloadProgress + '%' }" />
 					</view>
 				</view>
 
 				<view class="tip-card">
 					<image class="tip-icon" :src="icons.info" mode="aspectFit" />
-					<text class="tip-text">{{ t('videoDetail.downloadTip') }}</text>
+					<text class="tip-text">{{ downloading ? '-':t('videoDetail.downloadTip') }}</text>
 				</view>
 
 				<view class="bottom-space" />
@@ -87,7 +77,8 @@
 </template>
 
 <script setup>
-import { ref, computed, getCurrentInstance, onMounted } from 'vue'
+import { ref, computed, getCurrentInstance, onMounted, onUnmounted } from 'vue'
+import { calcPageScrollLayout, setupMobileLayout } from '@/utils/h5-compat'
 import { useI18n } from 'vue-i18n'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { isFavorite, toggleFavorite } from '@/utils/favorites'
@@ -106,9 +97,8 @@ const statusBarHeight = ref(0)
 const scrollHeight = ref(0)
 const playing = ref(false)
 const favorited = ref(false)
-const currentTime = ref(0)
-const duration = ref(0)
 const downloading = ref(false)
+const downloadProgress = ref(0)
 
 const detail = ref({
 	id: '',
@@ -121,9 +111,12 @@ const detail = ref({
 
 const showMemberSheet = ref(false)
 
-const progressPercent = computed(() => {
-	if (!duration.value) return 0
-	return Math.min(100, (currentTime.value / duration.value) * 100)
+const downloadBtnText = computed(() => {
+	if (!downloading.value) return t('videoDetail.download')
+	if (downloadProgress.value > 0) {
+		return t('videoDetail.downloadingProgress', { percent: downloadProgress.value })
+	}
+	return t('videoDetail.downloading')
 })
 
 const heartIcon = computed(() => {
@@ -149,11 +142,12 @@ function svgIcon(paths, color, fill = 'none') {
 const getCtx = () => uni.createVideoContext(VIDEO_ID)
 
 const calcLayout = () => {
-	const sys = uni.getSystemInfoSync()
-	statusBarHeight.value = sys.statusBarHeight || 0
-	const navH = uni.upx2px(88)
-	scrollHeight.value = sys.windowHeight - statusBarHeight.value - navH
+	const layout = calcPageScrollLayout({ headerRpx: 88 })
+	statusBarHeight.value = layout.statusBarHeight
+	scrollHeight.value = layout.scrollHeight
 }
+
+let unbindViewport = null
 
 const buildVideoUrl = (item) => {
 	if (item.play_url) {
@@ -188,18 +182,6 @@ const loadDetail = async (id) => {
 	// 	}
 	// 	favorited.value = isFavorite(cache.id)
 	// }
-}
-
-const formatTime = (sec) => {
-	const total = Math.floor(sec || 0)
-	const min = Math.floor(total / 60)
-	const s = total % 60
-	return `${String(min).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-}
-
-const onTimeUpdate = (e) => {
-	currentTime.value = e.detail.currentTime || 0
-	duration.value = e.detail.duration || duration.value
 }
 
 const onVideoError = () => {
@@ -249,6 +231,20 @@ const sanitizeFileName = (name = 'video') => {
 	return String(name).replace(/[\\/:*?"<>|]/g, '_').trim().slice(0, 80) || 'video'
 }
 
+const resetDownloadState = () => {
+	downloading.value = false
+	downloadProgress.value = 0
+}
+
+const setDownloadProgress = (percent) => {
+	downloadProgress.value = Math.min(99, Math.max(0, percent))
+}
+
+const finishDownload = () => {
+	downloadProgress.value = 100
+	setTimeout(resetDownloadState, 600)
+}
+
 const triggerFileDownload = (href, fileName) => {
 	const link = document.createElement('a')
 	link.href = href
@@ -257,14 +253,6 @@ const triggerFileDownload = (href, fileName) => {
 	document.body.appendChild(link)
 	link.click()
 	document.body.removeChild(link)
-}
-
-const updateDownloadProgress = (percent) => {
-	if (percent <= 0) return
-	uni.showLoading({
-		title: t('videoDetail.downloadingProgress', { percent }),
-		mask: true
-	})
 }
 
 const downloadViaUni = (url, fileName) => new Promise((resolve, reject) => {
@@ -283,8 +271,8 @@ const downloadViaUni = (url, fileName) => new Promise((resolve, reject) => {
 	})
 	task?.onProgressUpdate?.((res) => {
 		if (!res.totalBytesExpectedToWrite) return
-		const percent = Math.min(99, Math.round((res.totalBytesWritten / res.totalBytesExpectedToWrite) * 100))
-		updateDownloadProgress(percent)
+		const percent = Math.round((res.totalBytesWritten / res.totalBytesExpectedToWrite) * 100)
+		setDownloadProgress(percent)
 	})
 })
 
@@ -301,7 +289,6 @@ const downloadViaFetchBlob = async (url, fileName) => {
 const downloadOnH5 = async (url) => {
 	const fileName = `${sanitizeFileName(detail.value.title || detail.value.description)}.mp4`
 
-	// 优先 uni.downloadFile：走浏览器原生下载通道，移动端比 fetch 全量进内存更快
 	try {
 		await downloadViaUni(url, fileName)
 		return
@@ -320,23 +307,22 @@ const saveOnApp = (filePath) => {
 	})
 }
 
-const handleDownload = async () => {
-	const url = getDownloadUrl()
+const startDownload = (url) => {
 	if (!url || downloading.value) return
 
 	downloading.value = true
-	uni.showLoading({ title: t('videoDetail.downloading'), mask: true })
+	downloadProgress.value = 0
 
 	// #ifdef H5
-	try {
-		await downloadOnH5(url)
-	} catch (error) {
-		console.error('H5 download failed:', error)
-		uni.showToast({ title: t('videoDetail.downloadFailed'), icon: 'none' })
-	} finally {
-		uni.hideLoading()
-		downloading.value = false
-	}
+	downloadOnH5(url)
+		.then(() => {
+			if (downloading.value) finishDownload()
+		})
+		.catch((error) => {
+			console.error('H5 download failed:', error)
+			uni.showToast({ title: t('videoDetail.downloadFailed'), icon: 'none' })
+			resetDownloadState()
+		})
 	return
 	// #endif
 
@@ -345,6 +331,7 @@ const handleDownload = async () => {
 		success: (res) => {
 			if (res.statusCode !== 200) {
 				uni.showToast({ title: t('videoDetail.downloadFailed'), icon: 'none' })
+				resetDownloadState()
 				return
 			}
 			// #ifdef APP-PLUS
@@ -357,20 +344,22 @@ const handleDownload = async () => {
 				fail: () => uni.showToast({ title: t('videoDetail.failedToOpenFile'), icon: 'none' })
 			})
 			// #endif
+			finishDownload()
 		},
 		fail: () => {
 			uni.showToast({ title: t('videoDetail.downloadFailed'), icon: 'none' })
-		},
-		complete: () => {
-			uni.hideLoading()
-			downloading.value = false
+			resetDownloadState()
 		}
 	})
 	task?.onProgressUpdate?.((res) => {
 		if (!res.totalBytesExpectedToWrite) return
-		const percent = Math.min(99, Math.round((res.totalBytesWritten / res.totalBytesExpectedToWrite) * 100))
-		updateDownloadProgress(percent)
+		const percent = Math.round((res.totalBytesWritten / res.totalBytesExpectedToWrite) * 100)
+		setDownloadProgress(percent)
 	})
+}
+
+const handleDownload = () => {
+	startDownload(getDownloadUrl())
 }
 
 onLoad((options) => {
@@ -380,7 +369,11 @@ onLoad((options) => {
 })
 
 onMounted(() => {
-	calcLayout()
+	unbindViewport = setupMobileLayout(calcLayout)
+})
+
+onUnmounted(() => {
+	unbindViewport?.()
 })
 
 onUnload(() => {
@@ -391,13 +384,17 @@ onUnload(() => {
 <style>
 .page {
 	min-height: 100vh;
+	min-height: calc(var(--vh, 1vh) * 100);
+	min-height: -webkit-fill-available;
 	background: #121212;
 }
 
-.main {
-	min-height: 100vh;
+.page-shell {
 	display: flex;
 	flex-direction: column;
+	height: calc(var(--vh, 1vh) * 100);
+	min-height: -webkit-fill-available;
+	box-sizing: border-box;
 }
 
 .nav-bar {
@@ -459,62 +456,37 @@ onUnload(() => {
 	background: #000;
 }
 
-.player-mask {
-	position: absolute;
-	top: 0;
+/* uni-app H5 控制栏：iOS 需 show-progress + show-play-btn，并保证底部栏可见 */
+.player-wrap :deep(.uni-video-bar) {
+	display: flex !important;
+	align-items: center;
 	left: 0;
 	right: 0;
 	bottom: 0;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	background: rgba(0, 0, 0, 0.25);
+	z-index: 2;
+	opacity: 1 !important;
+	visibility: visible !important;
 }
 
-.player-play-btn {
-	width: 112rpx;
-	height: 112rpx;
-	border-radius: 50%;
-	background: linear-gradient(180deg, #D4B896 0%, #BF9566 100%);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	box-shadow: 0 8rpx 24rpx rgba(191, 149, 102, 0.45);
+.player-wrap :deep(.uni-video-progress),
+.player-wrap :deep(.uni-video-progress-container) {
+	flex: 1;
+	min-width: 0;
+	display: block !important;
 }
 
-.player-play-icon {
-	width: 44rpx;
-	height: 44rpx;
-	margin-left: 6rpx;
+.player-wrap :deep(.uni-video-ball) {
+	display: none !important;
+	opacity: 0 !important;
+	width: 0 !important;
+	height: 0 !important;
+	transform: scale(0) !important;
+	pointer-events: none !important;
 }
 
-.progress-bar {
-	padding: 20rpx 24rpx 0;
-}
-
-.progress-track {
-	height: 6rpx;
-	border-radius: 3rpx;
-	background: rgba(191, 149, 102, 0.2);
-	overflow: hidden;
-}
-
-.progress-fill {
-	height: 100%;
-	border-radius: 3rpx;
-	background: linear-gradient(90deg, #A8845A 0%, #BF9566 100%);
-}
-
-.progress-time {
-	margin-top: 12rpx;
-	display: flex;
-	flex-direction: row;
-	justify-content: space-between;
-}
-
-.time-text {
-	font-size: 22rpx;
-	color: #8B867C;
+.player-wrap :deep(.uni-video-fullscreen) {
+	flex-shrink: 0;
+	z-index: 2;
 }
 
 .info-card {
@@ -603,6 +575,24 @@ onUnload(() => {
 
 .action-text--gold {
 	color: #BF9566;
+}
+
+.download-progress {
+	margin: 16rpx 24rpx 0;
+}
+
+.download-progress-track {
+	height: 8rpx;
+	border-radius: 4rpx;
+	background: rgba(191, 149, 102, 0.15);
+	overflow: hidden;
+}
+
+.download-progress-fill {
+	height: 100%;
+	border-radius: 4rpx;
+	background: linear-gradient(90deg, #A8845A 0%, #BF9566 100%);
+	transition: width 0.2s ease;
 }
 
 .tip-card {

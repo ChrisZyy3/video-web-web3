@@ -84,8 +84,9 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { getMobilePageLayout, setupMobileLayout } from '@/utils/h5-compat'
 
 const { t } = useI18n()
 
@@ -130,9 +131,11 @@ function svgIcon(paths, color, fill = 'none') {
 }
 
 const calcSafeArea = () => {
-	const sys = uni.getSystemInfoSync()
-	safeBottom.value = sys.safeAreaInsets?.bottom || 0
+	const layout = getMobilePageLayout()
+	safeBottom.value = layout.safeBottom
 }
+
+let unbindViewport = null
 
 const handleClose = () => {
 	emit('update:visible', false)
@@ -178,7 +181,11 @@ watch(() => props.visible, (val) => {
 })
 
 onMounted(() => {
-	calcSafeArea()
+	unbindViewport = setupMobileLayout(calcSafeArea)
+})
+
+onUnmounted(() => {
+	unbindViewport?.()
 })
 </script>
 

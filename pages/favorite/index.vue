@@ -1,7 +1,14 @@
 <template>
   <view class="page">
-    <scroll-view class="scroll-body" scroll-y :style="{ height: scrollHeight + 'px' }">
-      <view :style="{ height: statusBarHeight + 'px' }" />
+    <view
+      class="page-shell page-shell--tabbar"
+      :style="{
+        paddingTop: statusBarHeight + 'px',
+        height: pageHeight + 'px'
+      }"
+    >
+    <view class="scroll-slot" :style="{ height: scrollHeight + 'px' }">
+    <scroll-view class="scroll-body" scroll-y>
 
       <!-- 顶部 Header -->
       <view class="nav-bar">
@@ -32,18 +39,21 @@
 
       <view class="bottom-space" />
     </scroll-view>
+    </view>
 
     <tabbar />
+    </view>
   </view>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { onShow } from '@dcloudio/uni-app'
 import tabbar from '@/components/tabbar/index'
 import videoCard from '@/components/video-card/index'
 import { getFavorites, toggleFavorite } from '@/utils/favorites'
+import { calcTabbarPageLayout, setupMobileLayout } from '@/utils/h5-compat'
 
 const { t } = useI18n()
 
@@ -51,6 +61,7 @@ const COVER_SRC = '/static/images/video-cover.png'
 
 const statusBarHeight = ref(0)
 const scrollHeight = ref(0)
+const pageHeight = ref(0)
 const gridCards = ref([])
 
 const loadFavorites = () => {
@@ -58,10 +69,13 @@ const loadFavorites = () => {
 }
 
 const calcLayout = () => {
-  const sys = uni.getSystemInfoSync()
-  statusBarHeight.value = sys.statusBarHeight || 0
-  scrollHeight.value = sys.windowHeight || sys.screenHeight
+  const layout = calcTabbarPageLayout()
+  statusBarHeight.value = layout.statusBarHeight
+  scrollHeight.value = layout.scrollHeight
+  pageHeight.value = layout.windowHeight
 }
+
+let unbindViewport = null
 
 const handleBack = () => {
   uni.navigateBack()
@@ -96,8 +110,12 @@ const handleCard = (item) => {
 }
 
 onMounted(() => {
-  calcLayout()
+  unbindViewport = setupMobileLayout(calcLayout)
   loadFavorites()
+})
+
+onUnmounted(() => {
+  unbindViewport?.()
 })
 
 onShow(() => {
@@ -108,6 +126,8 @@ onShow(() => {
 <style>
 .page {
   min-height: 100vh;
+  min-height: calc(var(--vh, 1vh) * 100);
+  min-height: -webkit-fill-available;
   background: #121212;
 }
 

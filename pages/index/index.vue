@@ -1,7 +1,15 @@
 <template>
   <view class="page">
-    <scroll-view class="scroll-body" scroll-y :style="{ height: scrollHeight + 'px' }">
-      <view :style="{ height: statusBarHeight + 'px' }" />
+    <view
+      class="page-shell page-shell--tabbar"
+      :style="{
+        paddingTop: statusBarHeight + 'px',
+        height: pageHeight + 'px'
+      }"
+    >
+    <!--:style="{ height: scrollHeight + 'px' }"-->
+    <view class="scroll-slot" style="flex:1">
+    <scroll-view class="scroll-body" scroll-y>
 
       <!-- 顶部 Header -->
       <view class="header">
@@ -113,10 +121,13 @@
         </view>
       </view>
 
-      <view class="bottom-space" :style="{ height: bottomSpaceHeight + 'px' }" />
+      <view class="bottom-space" />
+    <view style="height:200rpx">&nbsp;</view>
     </scroll-view>
+    </view>
 
     <tabbar />
+    </view>
 
     <member-intro v-model:visible="showMemberIntro" @confirm="handleMemberRecharge" />
     <member-sheet v-model:visible="showMemberSheet" />
@@ -124,7 +135,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, getCurrentInstance } from 'vue'
+import { ref, computed, onMounted, onUnmounted, getCurrentInstance } from 'vue'
+import { calcTabbarPageLayout, setupMobileLayout } from '@/utils/h5-compat'
 import { useI18n } from 'vue-i18n'
 import { onShow } from '@dcloudio/uni-app'
 import tabbar from '@/components/tabbar/index'
@@ -139,12 +151,9 @@ const { t } = useI18n()
 const { proxy } = getCurrentInstance()
 const baseUrl = proxy.$baseUrl
 
-const TABBAR_CONTENT_RPX = 110
-const BULGE_EXTRA_RPX = 36
-
 const statusBarHeight = ref(0)
 const scrollHeight = ref(0)
-const bottomSpaceHeight = ref(60)
+const pageHeight = ref(0)
 const showMemberIntro = ref(false)
 const showMemberSheet = ref(false)
 
@@ -228,17 +237,13 @@ function svgIcon(paths, color, fill = 'none') {
 }
 
 const calcLayout = () => {
-  const sys = uni.getSystemInfoSync()
-  statusBarHeight.value = sys.statusBarHeight || 0
-  scrollHeight.value = sys.windowHeight || sys.screenHeight
-
-  let insetBottom = sys.safeAreaInsets?.bottom || 0
-  if (insetBottom === 0 && sys.safeArea && sys.screenHeight) {
-    insetBottom = Math.max(sys.screenHeight - sys.safeArea.bottom, 0)
-  }
-  const rpxToPx = (sys.windowWidth || 375) / 750
-  bottomSpaceHeight.value = Math.ceil((TABBAR_CONTENT_RPX + BULGE_EXTRA_RPX) * rpxToPx) + insetBottom
+  const layout = calcTabbarPageLayout()
+  statusBarHeight.value = layout.statusBarHeight
+  scrollHeight.value = layout.scrollHeight
+  pageHeight.value = layout.windowHeight
 }
+
+let unbindViewport = null
 
 const handleMenu = () => {
   uni.showToast({ title: t('index.menu'), icon: 'none' })
@@ -314,13 +319,18 @@ const handleMemberRecharge = () => {
 }
 
 onMounted(() => {
-  calcLayout()
+  unbindViewport = setupMobileLayout(calcLayout)
   syncFavorites()
   getList()
   showMemberIntro.value = true
 })
 
+onUnmounted(() => {
+  unbindViewport?.()
+})
+
 onShow(() => {
+  calcLayout()
   syncFavorites()
 })
 </script>
@@ -328,6 +338,8 @@ onShow(() => {
 <style>
 .page {
   min-height: 100vh;
+  min-height: calc(var(--vh, 1vh) * 100);
+  min-height: -webkit-fill-available;
   background: #121212;
 }
 

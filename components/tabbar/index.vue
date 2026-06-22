@@ -1,15 +1,6 @@
 <template>
   <view class="tabbar-wrap">
-  <!-- :style="{ height: placeholderHeight + 'px', paddingBottom: safeBottom > 0 ? safeBottom + 'px' : '' }" -->
-    <view
-      class="tabbar-placeholder"
-      
-    />
-    <!--  :style="safeBottom > 0 ? { paddingBottom: safeBottom + 'px' } : {}" -->
-    <view
-      class="tabbarMain"
-     
-    >
+    <view class="tabbarMain">
       <view class="tabBtnMina">
         <view
           v-for="(item, index) in navs"
@@ -53,9 +44,6 @@ const { t } = useI18n()
 const COLOR_DEFAULT = '#8B867C'
 const COLOR_WHITE = '#FFFFFF'
 
-const TABBAR_CONTENT_RPX = 110
-const BULGE_EXTRA_RPX = 36
-
 function svgIcon(paths, color, fill = 'none') {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="${fill}" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
@@ -79,20 +67,7 @@ const navs = computed(() => [
 ])
 
 const active = ref(0)
-const safeBottom = ref(0)
-const placeholderHeight = ref(60)
 const currentPath = ref('')
-
-const calcSafeArea = () => {
-  const { safeAreaInsets, windowWidth, screenHeight, safeArea } = uni.getSystemInfoSync()
-  let insetBottom = safeAreaInsets?.bottom || 0
-  if (insetBottom === 0 && safeArea && screenHeight) {
-    insetBottom = Math.max(screenHeight - safeArea.bottom, 0)
-  }
-  safeBottom.value = insetBottom
-  const rpxToPx = windowWidth / 750
-  placeholderHeight.value = Math.ceil((TABBAR_CONTENT_RPX + BULGE_EXTRA_RPX) * rpxToPx)
-}
 
 const activeHandler = () => {
   const pages = getCurrentPages()
@@ -111,7 +86,6 @@ const goUrl = (item, index) => {
 }
 
 onMounted(() => {
-  calcSafeArea()
   activeHandler()
 })
 
@@ -125,20 +99,14 @@ onShow(() => {
   width: 100%;
   position: fixed;
   bottom: 0;
-}
-
-.tabbar-placeholder {
-  box-sizing: content-box;
-  padding-bottom: constant(safe-area-inset-bottom);
-  padding-bottom: env(safe-area-inset-bottom);
+  left: 0;
+  right: 0;
+  z-index: 999999;
+  pointer-events: none;
 }
 
 .tabbarMain {
-  position: fixed;
-  z-index: 999999;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  pointer-events: auto;
   background: #fff;
   border-top: 1rpx solid #EBEBEB;
   box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.06);

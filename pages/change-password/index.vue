@@ -2,7 +2,7 @@
 	<view class="page">
 		<image class="page-bg" src="/static/images/login-bg.png" mode="aspectFill" />
 
-		<view class="main" :style="{ paddingTop: statusBarHeight + 'px' }">
+		<view class="page-shell" :style="{ paddingTop: statusBarHeight + 'px', paddingBottom: safeBottom + 'px' }">
 			<view class="nav-bar">
 				<view class="back-btn" @click="handleBack">
 					<text class="back-icon">‹</text>
@@ -67,22 +67,27 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formIcons } from '@/utils/form-icons'
+import { calcPageScrollLayout, setupMobileLayout } from '@/utils/h5-compat'
 
 const { t } = useI18n()
 
 const statusBarHeight = ref(0)
+const safeBottom = ref(0)
 const userId = ref('2607')
 const account = ref('')
 const password = ref('')
 const icons = formIcons
 
 const calcLayout = () => {
-	const sys = uni.getSystemInfoSync()
-	statusBarHeight.value = sys.statusBarHeight || 0
+	const layout = calcPageScrollLayout()
+	statusBarHeight.value = layout.statusBarHeight
+	safeBottom.value = layout.safeBottom
 }
+
+let unbindViewport = null
 
 const handleBack = () => {
 	uni.navigateBack({
@@ -113,7 +118,11 @@ const handleSave = () => {
 }
 
 onMounted(() => {
-	calcLayout()
+	unbindViewport = setupMobileLayout(calcLayout)
+})
+
+onUnmounted(() => {
+	unbindViewport?.()
 })
 </script>
 
