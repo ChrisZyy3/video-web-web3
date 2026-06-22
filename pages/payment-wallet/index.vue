@@ -1,7 +1,6 @@
 <template>
 	<view class="page">
-		<view class="page-shell" >
-			<scroll-view class="scroll-body" scroll-y :style="{ height: scrollHeight + 'px' }">
+		<view class="main" :style="{ paddingTop: statusBarHeight + 'px', paddingBottom: safeBottom + 'px' }">
 			<view class="nav-bar">
 				<view class="back-btn" @click="handleBack">
 					<text class="back-icon">‹</text>
@@ -34,10 +33,8 @@
 				</view>
 			</view>
 
-			<view class="bottom-space" />
-			</scroll-view>
-			<!--:style="{ paddingBottom: safeBottom + 'px' }"-->
-			<view class="footer" >
+			<view class="spacer" />
+
 			<view
 				class="footer-btn"
 				:class="{ 'footer-btn--disabled': opening || orderExpired }"
@@ -45,13 +42,12 @@
 			>
 				<text class="footer-btn-text">{{ opening ? t('paymentWallet.connecting') : t('paymentWallet.openWalletToPay') }}</text>
 			</view>
-			</view>
 		</view>
 	</view>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { useI18n } from 'vue-i18n'
 import { 
@@ -60,7 +56,6 @@ import {
 	buildPaymentReturnUrl, 
 	markOrderPaymentCompleted 
 } from '@/utils/tron-pay'
-import { calcPageScrollLayout, setupMobileLayout } from '@/utils/h5-compat'
 
 const { t } = useI18n()
 
@@ -71,7 +66,6 @@ const toWalletInfo = (wallet) => ({
 })
 
 const statusBarHeight = ref(0)
-const scrollHeight = ref(0)
 const safeBottom = ref(0)
 const selectedWallet = ref('')
 const opening = ref(false)
@@ -94,13 +88,10 @@ const WALLET_DOWNLOAD = {
 const orderExpired = computed(() => isOrderExpired(order.value))
 
 const calcLayout = () => {
-	const layout = calcPageScrollLayout({ footerRpx: 120 })
-	statusBarHeight.value = layout.statusBarHeight
-	safeBottom.value = layout.safeBottom
-	scrollHeight.value = layout.scrollHeight
+	const sys = uni.getSystemInfoSync()
+	statusBarHeight.value = sys.statusBarHeight || 0
+	safeBottom.value = sys.safeAreaInsets?.bottom || 0
 }
-
-let unbindViewport = null
 
 const loadOrder = () => {
 	const data = uni.getStorageSync('pendingOrder')
@@ -210,34 +201,21 @@ const handlePay = async () => {
 
 onMounted(() => {
 	calcLayout()
-	unbindViewport = setupMobileLayout(calcLayout)
 	loadOrder()
-})
-
-onUnmounted(() => {
-	unbindViewport?.()
 })
 </script>
 
 <style>
 .page {
 	min-height: 100vh;
-	min-height: calc(var(--vh, 1vh) * 100);
-	min-height: -webkit-fill-available;
 	background: #000;
 }
 
-.page-shell {
+.main {
+	min-height: 100vh;
 	display: flex;
 	flex-direction: column;
-	height: calc(var(--vh, 1vh) * 100);
-	min-height: -webkit-fill-available;
-	box-sizing: border-box;
-}
-
-.scroll-body {
-	flex: 1;
-	padding: 0 24rpx;
+	padding: 0 24rpx 32rpx;
 	box-sizing: border-box;
 }
 
@@ -254,7 +232,7 @@ onUnmounted(() => {
 }
 
 .back-icon {
-	font-size: 86rpx;
+	font-size: 56rpx;
 	color: #C9A86C;
 	line-height: 1;
 	font-weight: 200;
@@ -357,14 +335,9 @@ onUnmounted(() => {
 	font-weight: 500;
 }
 
-.bottom-space {
-	height: 24rpx;
-}
-
-.footer {
-	flex-shrink: 0;
-	padding: 16rpx 24rpx 0;
-	box-sizing: border-box;
+.spacer {
+	flex: 1;
+	min-height: 40rpx;
 }
 
 .footer-btn {

@@ -1,14 +1,7 @@
 <template>
 	<view class="page">
-		<view
-			class="page-shell page-shell--tabbar"
-			:style="{
-				paddingTop: statusBarHeight + 'px',
-				height: pageHeight + 'px'
-			}"
-		>
-		<view class="scroll-slot" :style="{ height: scrollHeight + 'px' }">
-		<scroll-view class="scroll-body" scroll-y>
+		<scroll-view class="scroll-body" scroll-y :style="{ height: scrollHeight + 'px' }">
+			<view :style="{ height: statusBarHeight + 'px' }" />
 
 			<view class="profile-card">
 				<view class="card-body">
@@ -100,21 +93,18 @@
 
 			<view class="bottom-space" />
 		</scroll-view>
-		</view>
 		
 		<tabbar />
-		</view>
 
 		<member-sheet v-model:visible="showMemberSheet" />
 	</view>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import tabbar from '@/components/tabbar/index'
 import memberSheet from '@/components/member-sheet/index'
-import { calcTabbarPageLayout, setupMobileLayout } from '@/utils/h5-compat'
 
 const { t, locale } = useI18n()
 
@@ -123,7 +113,6 @@ const defaultAvatar = '/static/images/default-avatar.svg'
 
 const statusBarHeight = ref(0)
 const scrollHeight = ref(0)
-const pageHeight = ref(0)
 const showMemberSheet = ref(false)
 
 const currentLangLabel = computed(() =>
@@ -158,13 +147,10 @@ function qrcodeSvg() {
 }
 
 const calcLayout = () => {
-	const layout = calcTabbarPageLayout()
-	statusBarHeight.value = layout.statusBarHeight
-	scrollHeight.value = layout.scrollHeight
-	pageHeight.value = layout.windowHeight
+	const sys = uni.getSystemInfoSync()
+	statusBarHeight.value = sys.statusBarHeight || 0
+	scrollHeight.value = sys.windowHeight || sys.screenHeight
 }
-
-let unbindViewport = null
 
 const handleLogout = () => {
 	uni.showToast({ title: t('mine.loggedOut'), icon: 'none' })
@@ -217,19 +203,13 @@ const handleCopyDomain = () => {
 }
 
 onMounted(() => {
-	unbindViewport = setupMobileLayout(calcLayout)
-})
-
-onUnmounted(() => {
-	unbindViewport?.()
+	calcLayout()
 })
 </script>
 
 <style>
 .page {
 	min-height: 100vh;
-	min-height: calc(var(--vh, 1vh) * 100);
-	min-height: -webkit-fill-available;
 	background: #000;
 }
 

@@ -1,7 +1,5 @@
 .page {
 	min-height: 100vh;
-	min-height: calc(var(--vh, 1vh) * 100);
-	min-height: -webkit-fill-available;
 	position: relative;
 	background: #000;
 }
@@ -15,12 +13,10 @@
 	z-index: 0;
 }
 
-.page-shell {
+.main {
 	position: relative;
 	z-index: 1;
 	min-height: 100vh;
-	min-height: calc(var(--vh, 1vh) * 100);
-	min-height: -webkit-fill-available;
 	display: flex;
 	flex-direction: column;
 	padding: 0 48rpx 80rpx;

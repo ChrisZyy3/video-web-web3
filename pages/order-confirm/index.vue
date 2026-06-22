@@ -1,7 +1,6 @@
 <template>
 	<view class="page">
-	<!---->
-		<view class="page-shell" :style="{ paddingTop: statusBarHeight + 'px' }">
+		<view class="main" :style="{ paddingTop: statusBarHeight + 'px' }">
 			<!--<view class="top-bar">
 				<view class="brand">
 					<view class="brand-icon">
@@ -24,8 +23,8 @@
 				<text class="page-title">{{ t('orderConfirm.title') }}</text>
 				<text class="page-sub">{{ t('orderConfirm.subtitle') }}</text>
 			</view>
-			<!--:style="{ height: scrollHeight + 'px' }"-->
-			<scroll-view class="scroll-body" scroll-y >
+
+			<scroll-view class="scroll-body" scroll-y :style="{ height: scrollHeight + 'px' }">
 				<view class="amount-card">
 					<text class="amount-value">
 					{{ order.total }} USDT
@@ -64,14 +63,10 @@
 								<text class="detail-label">{{ t('orderConfirm.quantity') }}</text>
 								<text class="detail-value">{{ order.quantity }}</text>
 							</view>
-							<view class="detail-cell">
-								<text class="detail-label">{{ t('orderConfirm.orderNo') }}</text>
-								<text class="detail-value">{{ order.orderNo }}</text>
-							</view>
-							<view class="detail-cell">
-								<text class="detail-label">&nbsp;</text>
-								<text class="detail-value">&nbsp;</text>
-							</view>
+						</view>
+						<view class="detail-row-full">
+							<text class="detail-label">{{ t('orderConfirm.orderNo') }}</text>
+							<text class="detail-value detail-value--sm">{{ order.orderNo }}</text>
 						</view>
 					</view>
 				</view>
@@ -104,7 +99,7 @@
 				<view class="bottom-space" />
 			</scroll-view>
 
-			<view class="footer" >
+			<view class="footer" :style="{ paddingBottom: safeBottom + 'px' }">
 				<view class="footer-btn" @click="handleNext">
 					<text class="footer-btn-text">{{ t('orderConfirm.nextConfirm') }}</text>
 				</view>
@@ -116,7 +111,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { calcPageScrollLayout, setupMobileLayout } from '@/utils/h5-compat'
 
 const { t } = useI18n()
 
@@ -160,13 +154,13 @@ function svgIcon(paths, color, fill = 'none') {
 }
 
 const calcLayout = () => {
-	const layout = calcPageScrollLayout({ headerRpx: 200, footerRpx: 120 })
-	statusBarHeight.value = layout.statusBarHeight
-	safeBottom.value = layout.safeBottom
-	scrollHeight.value = layout.scrollHeight
+	const sys = uni.getSystemInfoSync()
+	statusBarHeight.value = sys.statusBarHeight || 0
+	safeBottom.value = sys.safeAreaInsets?.bottom || 0
+	const footerH = uni.upx2px(120) + safeBottom.value
+	const topH = uni.upx2px(200) + statusBarHeight.value
+	scrollHeight.value = sys.windowHeight - topH - footerH
 }
-
-let unbindViewport = null
 
 const loadOrder = () => {
 	const data = uni.getStorageSync('pendingOrder')
@@ -202,7 +196,7 @@ const handleNext = () => {
 }
 
 onMounted(() => {
-	unbindViewport = setupMobileLayout(calcLayout)
+	calcLayout()
 	loadOrder()
 	updateCountdown()
 	timer = setInterval(updateCountdown, 1000)
@@ -210,25 +204,20 @@ onMounted(() => {
 
 onUnmounted(() => {
 	if (timer) clearInterval(timer)
-	unbindViewport?.()
 })
 </script>
 
 <style>
 .page {
 	min-height: 100vh;
-	min-height: calc(var(--vh, 1vh) * 100);
-	min-height: -webkit-fill-available;
 	background: #000;
 }
 
-.page-shell {
+.main {
+	min-height: 100vh;
 	display: flex;
 	flex-direction: column;
-	height: calc(var(--vh, 1vh) * 100);
-	min-height: -webkit-fill-available;
-	padding: 0 0.75rem 0;
-	box-sizing: border-box;
+	padding: 0 0.75rem 1rem;
 }
 
 .top-bar {
@@ -301,7 +290,7 @@ onUnmounted(() => {
 }
 
 .back-icon {
-	font-size: 86rpx;
+	font-size: 56rpx;
 	color: #C9A86C;
 	line-height: 1;
 	font-weight: 200;
@@ -439,7 +428,6 @@ onUnmounted(() => {
 .detail-cell {
 	width: 50%;
 	margin-bottom: 20rpx;
-	text-align: left;
 }
 
 .detail-label {

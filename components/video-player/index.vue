@@ -12,11 +12,9 @@
       :playsinline="true"
       :controls="true"
       :show-center-play-btn="true"
-      :show-play-btn="true"
       :show-fullscreen-btn="true"
-      :show-progress="true"
       :enable-progress-gesture="true"
-      object-fit="contain"
+      object-fit="cover"
       @canplay="onCanPlay"
       @play="onPlay"
       @error="onError"
@@ -28,8 +26,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue'
-import { getMobilePageLayout, setupMobileLayout } from '@/utils/h5-compat'
+import { ref, watch, onMounted } from 'vue'
 
 const props = defineProps({
   visible: {
@@ -88,19 +85,9 @@ const handleClose = () => {
 	emit('close')
 }
 
-const updateCloseTop = () => {
-  const layout = getMobilePageLayout()
-  closeTop.value = layout.statusBarHeight + 10
-}
-
-let unbindViewport = null
-
 onMounted(() => {
-  unbindViewport = setupMobileLayout(updateCloseTop)
-})
-
-onUnmounted(() => {
-  unbindViewport?.()
+  const sys = uni.getSystemInfoSync()
+  closeTop.value = (sys.statusBarHeight || 0) + 10
 })
 
 watch(() => props.visible, (val) => {
@@ -129,28 +116,6 @@ defineExpose({ play })
   height: 100%;
   display: block;
   background: #000;
-}
-
-.player-mask :deep(.uni-video-bar) {
-  display: flex !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-}
-
-.player-mask :deep(.uni-video-progress),
-.player-mask :deep(.uni-video-progress-container) {
-  flex: 1;
-  min-width: 0;
-  display: block !important;
-}
-
-.player-mask :deep(.uni-video-ball) {
-  display: none !important;
-  opacity: 0 !important;
-  width: 0 !important;
-  height: 0 !important;
-  transform: scale(0) !important;
-  pointer-events: none !important;
 }
 
 .player-close {

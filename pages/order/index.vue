@@ -1,7 +1,7 @@
 <template>
 	<view class="page">
 
-		<view class="page-shell" :style="{ paddingTop: statusBarHeight + 'px' }">
+		<view class="main" :style="{ paddingTop: statusBarHeight + 'px' }">
 			<view class="nav-bar">
 				<view class="back-btn" @click="handleBack">
 					<text class="back-icon">‹</text>
@@ -66,9 +66,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { calcPageScrollLayout, setupMobileLayout } from '@/utils/h5-compat'
 
 const { t } = useI18n()
 
@@ -132,12 +131,12 @@ const filteredOrders = computed(() => {
 })
 
 const calcLayout = () => {
-	const layout = calcPageScrollLayout({ headerRpx: 88 })
-	statusBarHeight.value = layout.statusBarHeight
-	scrollHeight.value = layout.scrollHeight
+	const sys = uni.getSystemInfoSync()
+	statusBarHeight.value = sys.statusBarHeight || 0
+	const navH = uni.upx2px(88)
+	const tabsH = uni.upx2px(72)
+	scrollHeight.value = sys.windowHeight - statusBarHeight.value - navH - tabsH
 }
-
-let unbindViewport = null
 
 const handleBack = () => {
 	uni.navigateBack({
@@ -148,29 +147,19 @@ const handleBack = () => {
 }
 
 onMounted(() => {
-	unbindViewport = setupMobileLayout(calcLayout)
-})
-
-onUnmounted(() => {
-	unbindViewport?.()
+	calcLayout()
 })
 </script>
 
 <style>
 .page {
 	min-height: 100vh;
-	min-height: calc(var(--vh, 1vh) * 100);
-	min-height: -webkit-fill-available;
 	position: relative;
 	background: #121212;
+	
 }
 
-.page-shell {
-	display: flex;
-	flex-direction: column;
-	height: calc(var(--vh, 1vh) * 100);
-	min-height: -webkit-fill-available;
-	box-sizing: border-box;
+.page-bg-wrap {
 	position: fixed;
 	top: 0;
 	left: 0;
@@ -197,14 +186,10 @@ onUnmounted(() => {
 	height: auto;
 }
 
-.page-shell {
+.main {
 	position: relative;
 	z-index: 1;
-	display: flex;
-	flex-direction: column;
-	height: calc(var(--vh, 1vh) * 100);
-	min-height: -webkit-fill-available;
-	box-sizing: border-box;
+	min-height: 100vh;
 }
 
 .nav-bar {
@@ -225,7 +210,7 @@ onUnmounted(() => {
 }
 
 .back-icon {
-	font-size: 86rpx;
+	font-size: 56rpx;
 	color: #C9A86C;
 	line-height: 1;
 	font-weight: 200;

@@ -83,7 +83,7 @@ export default {
     play: 'Play',
     pause: 'Pause',
     download: 'Download',
-    downloadTip: 'Ensure a stable network when downloading. ',
+    downloadTip: 'Ensure a stable network when downloading. Some browsers require long-pressing the video to save it.',
     savedToAlbum: 'Saved to album',
     saveFailed: 'Save failed. Please check album permissions',
     downloadStarted: 'Download started',

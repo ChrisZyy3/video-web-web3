@@ -3,8 +3,6 @@ import { http } from '@/utils/request'
 import { baseUrl } from '@/env'
 // #ifdef H5
 import Web3 from 'web3'
-import { initH5Compat } from '@/utils/h5-compat'
-initH5Compat()
 // #endif
 
 // function createWeb3() {
