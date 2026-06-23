@@ -373,7 +373,9 @@ onUnmounted(() => {
 }
 
 .tronlink img{
-	width: 100%;
+	width: 165%;
+	position: relative;
+	left:-2rpx;
 }
 
 .tokenpocket img{
@@ -387,7 +389,7 @@ onUnmounted(() => {
 .bitkeep img{
 	width: 165%;
 	position: relative;
-	top: -2rpx;
+	top: -1rpx;
 }
 
 .wallet-icon-text {
