@@ -18,13 +18,13 @@
 								<text class="info-label">{{ t('mine.id') }}</text>
 								<text class="info-value info-value--empty">--</text>
 							</view>
-							<view class="info-cell info-cell--right" @click="handleBrowser">
+							<!-- <view class="info-cell info-cell--right" @click="handleBrowser">
 								<text class="info-label">{{ t('mine.browser') }}</text>
 								<view class="info-cell-value">
 									<text class="info-value">Chrome</text>
 									<text class="arrow-icon">›</text>
 								</view>
-							</view>
+							</view> -->
 						</view>
 						<view class="info-grid">
 							<view class="info-cell">
