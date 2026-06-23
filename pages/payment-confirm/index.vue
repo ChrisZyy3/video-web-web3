@@ -736,6 +736,7 @@ onUnmounted(() => {
 	color: #64748B;
 	font-weight: 500;
 	word-break: break-all;
+	white-space: nowrap;
 }
 
 .contract-card {
