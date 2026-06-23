@@ -27,8 +27,8 @@
 						:class="{ 'wallet-item--active': selectedWallet === wallet.id }"
 						@click="selectedWallet = wallet.id"
 					>
-						<view class="wallet-icon" :style="{ background: wallet.bg }">
-							<text class="wallet-icon-text">{{ wallet.abbr }}</text>
+						<view class="wallet-icon" :class="[wallet.id]">
+							<img :src="wallet.bg" />
 						</view>
 						<text class="wallet-name">{{ wallet.name }}</text>
 					</view>
@@ -82,12 +82,16 @@ const bottomSpaceHeight = ref(32)
 const selectedWallet = ref('')
 const opening = ref(false)
 const order = ref({ total: '1.00', expireAt: 0 })
+import wallet1 from '../../static/images/wallet1.png'
+import wallet2 from '../../static/images/wallet2.png'
+import wallet3 from '../../static/images/wallet3.png'
+import wallet4 from '../../static/images/wallet4.png'
 
 const wallets = [
-	//{ id: 'tronlink', name: 'TronLink', abbr: 'TL', bg: '#3B82F6', icon: 'T' },
-	{ id: 'tokenpocket', name: 'TokenPocket', abbr: 'TP', bg: '#2980FF', icon: 'T' },
-	{ id: 'imtoken', name: 'imToken', abbr: 'im', bg: '#4F8EF7', icon: 'I' },
-	{ id: 'bitkeep', name: 'BitKeep', abbr: 'BG', bg: '#00B4D8', icon: 'B' }
+	//{ id: 'tronlink', name: 'TronLink', abbr: 'TL', bg: wallet1, icon: 'T' },
+	{ id: 'tokenpocket', name: 'TokenPocket', abbr: 'TP', bg: wallet2, icon: 'T' },
+	{ id: 'imtoken', name: 'imToken', abbr: 'im', bg: wallet3, icon: 'I' },
+	{ id: 'bitkeep', name: 'BitKeep', abbr: 'BG', bg: wallet4, icon: 'B' }
 ]
 
 const WALLET_DOWNLOAD = {
@@ -365,6 +369,25 @@ onUnmounted(() => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	overflow: hidden;
+}
+
+.tronlink img{
+	width: 100%;
+}
+
+.tokenpocket img{
+	width: 240%;
+}
+
+.imtoken img{
+	width: 190%;
+}
+
+.bitkeep img{
+	width: 165%;
+	position: relative;
+	top: -2rpx;
 }
 
 .wallet-icon-text {
