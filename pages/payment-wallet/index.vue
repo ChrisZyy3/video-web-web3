@@ -60,7 +60,7 @@ import {
 	buildPaymentReturnUrl, 
 	markOrderPaymentCompleted 
 } from '@/utils/tron-pay'
-import { calcFixedFooterPageLayout, bindViewportResize } from '@/utils/h5-compat'
+import { calcFixedFooterPageLayout, bindViewportResize, parseH5RouteQuery } from '@/utils/h5-compat'
 
 const { t } = useI18n()
 
