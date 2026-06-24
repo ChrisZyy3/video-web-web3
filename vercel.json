@@ -1,7 +1,7 @@
 {
   "buildCommand": "npm run build:h5",
   "installCommand": "npm install",
-  "outputDirectory": "unpackage/dist/build/web",
+  "outputDirectory": "dist/build/h5",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
   ]
