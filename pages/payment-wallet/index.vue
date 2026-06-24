@@ -387,7 +387,7 @@ onUnmounted(() => {
 }
 
 .bitkeep img{
-	width: 128%;
+	width: 129%;
 	position: relative;
 	top: -1.5rpx;
 	left: 1rpx
