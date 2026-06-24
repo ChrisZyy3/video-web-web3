@@ -9,6 +9,12 @@
 				<text class="intro-badge-text">VIP</text>
 			</view> -->
 
+			<!-- Promotional Banner Image Container / 宣传海报图片容器，引导用户了解充值特权 -->
+			<view class="intro-banner-wrap">
+				<!-- Banner Image / 宣传图片本身，使用静态资源占位，已替换为新会员海报背景图 (member-banner.jpg) -->
+				<image class="intro-banner-img" src="/static/images/member-banner.jpg" mode="aspectFill" />
+			</view>
+
 			<text class="intro-title">{{ t('memberIntro.title') }}</text>
 			<text class="intro-slogan">{{ t('memberIntro.slogan') }}</text>
 
@@ -179,5 +185,23 @@ const handleConfirm = () => {
 .intro-later-text {
 	font-size: 26rpx;
 	color: #8B867C;
+}
+
+/* Promotional Banner Wrapper / 宣传海报外部容器样式 */
+.intro-banner-wrap {
+	width: 100%; /* Force container width to be 100% / 铺满面板宽度 */
+	height: 320rpx; /* Fixed banner height / 固定海报高度 */
+	border-radius: 16rpx; /* Rounded card corners / 圆角卡片 */
+	overflow: hidden; /* Hide overflow children / 隐藏内部溢出 */
+	margin-bottom: 24rpx; /* Bottom spacing to separate from title / 底部间距 */
+	border: 1rpx solid rgba(191, 149, 102, 0.25); /* Subtle gold accent border / 淡淡的金色描边 */
+	box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.3); /* Subtle card drop shadow / 阴影效果 */
+}
+
+/* Promotional Banner Image / 宣传海报图片元素样式 */
+.intro-banner-img {
+	width: 100%; /* Make image fill wrapper width / 宽度100%铺满 */
+	height: 100%; /* Make image fill wrapper height / 高度100%铺满 */
+	display: block; /* Remove baseline block gaps / 消除底边间隙 */
 }
 </style>

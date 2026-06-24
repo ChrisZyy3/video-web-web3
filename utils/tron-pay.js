@@ -1,6 +1,8 @@
 import acceptorAbi from '@/utils/UsdtAccepter.json'
 import i18n from '@/i18n'
 import { tronRpc } from '@/env'
+// 引入设置会员已支付状态的本地记录函数 / Import the function to set paid member status locally
+import { setLookMember } from '@/utils/look-member'
 
 // 读取 i18n 文案
 function t(key, params) {
@@ -303,9 +305,12 @@ export function redirectAfterPaymentSuccess(returnUrl) {
   }
 }
 
-// 清除待支付订单缓存
+// 清除待支付订单缓存，并同步标记本地已支付/已购买状态 / Clear pending order cache and mark the local member status as paid
 export function markOrderPaymentCompleted() {
+  // 移除本地待支付订单缓存 / Remove pending order from local storage
   uni.removeStorageSync('pendingOrder')
+  // 标记用户已付费，记录已支付状态 / Set member status to paid in local storage
+  setLookMember(true)
 }
 
 // 生成支付确认页链接（imToken 用短参数 walletId 防截断）

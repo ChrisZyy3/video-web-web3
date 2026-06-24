@@ -15,7 +15,8 @@
 			<scroll-view class="scroll-body" scroll-y>
 				<view class="amount-card">
 					<text class="amount-label">{{ t('paymentWallet.amountDue') }}</text>
-					<text class="amount-value">{{ order.total }} USDT</text>
+					<!-- Format the order total to strip useless trailing zeroes from decimals / 格式化订单总额以去除无意义的末尾零 -->
+					<text class="amount-value">{{ formatTotal(order.total) }} USDT</text>
 					<text v-if="orderExpired" class="amount-expired">{{ t('paymentWallet.orderExpiredHint') }}</text>
 				</view>
 
@@ -82,6 +83,16 @@ const bottomSpaceHeight = ref(32)
 const selectedWallet = ref('')
 const opening = ref(false)
 const order = ref({ total: '1.00', expireAt: 0 })
+
+// 格式化金额，如果小数位为0则去除小数位，保留有意义的小数位，每段代码均已添加详细注释 / Helper function to format order total by removing trailing zeroes
+const formatTotal = (val) => {
+	// 校验传入的值是否为空，为空则默认返回 '0' / Return '0' if value is falsy
+	if (!val) return '0'
+	// 使用 parseFloat 将其转为浮点数 / Convert the string amount to float
+	const num = parseFloat(val)
+	// 判断如果是非法数字则回退为原字符，否则转为字符串（这会自动剔除末尾多余的零）/ Return original if conversion fails, else convert back to string
+	return isNaN(num) ? val : num.toString()
+}
 import wallet1 from '../../static/images/wallet1.png'
 import wallet2 from '../../static/images/wallet2.png'
 import wallet3 from '../../static/images/wallet3.png'

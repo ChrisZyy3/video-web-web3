@@ -36,11 +36,12 @@
 				>
 					<view class="order-head">
 						<text class="order-no">{{ t('order.orderNo') }}: {{ order.orderNo }}</text>
+						<!-- Display the current order status (Paid / Unpaid) dynamically / 根据订单状态动态显示“已付款”或“未付款”状态文本 -->
 						<text
 							class="order-status"
 							:class="order.status === 'paid' ? 'order-status--paid' : 'order-status--unpaid'"
 						>
-							<!--{{ order.status === 'paid' ? '已付款' : '未付款' }}-->
+							{{ order.status === 'paid' ? t('order.tabPaid') : t('order.tabUnpaid') }}
 						</text>
 					</view>
 
@@ -50,8 +51,10 @@
 							<text class="order-title">{{ order.title }}</text>
 							<!--<text class="order-date">{{ order.contact }}</text>-->
 							<view class="order-price-row">
-								<text class="order-price-label">{{ t('order.paid') }}</text>
-								<text class="order-price">{{ order.total }} {{order.currency}}</text>
+								<!-- Dynamically switch label between 'Paid' and 'Amount Due' depending on order payment status / 根据支付状态动态切换“已付”与“应付”标签 -->
+								<text class="order-price-label">{{ order.status === 'paid' ? t('order.paid') : t('paymentWallet.amountDue') }}</text>
+								<!-- Format the order total to strip useless trailing zeroes from decimals / 格式化订单总额以去除无意义的末尾零 -->
+								<text class="order-price">{{ formatTotal(order.total) }} {{order.currency}}</text>
 							</view>
 						</view>
 					</view>
@@ -132,6 +135,16 @@ const orders = ref([
 	// }
 ])
 orders.value = uni.getStorageSync('listOrder')
+
+// 格式化金额，如果小数位为0则去除小数位，保留有意义的小数位，每段代码均已添加详细注释 / Helper function to format order total by removing trailing zeroes
+const formatTotal = (val) => {
+	// 校验传入的值是否为空，为空则默认返回 '0' / Return '0' if value is falsy
+	if (!val) return '0'
+	// 使用 parseFloat 将其转为浮点数 / Convert the string amount to float
+	const num = parseFloat(val)
+	// 判断如果是非法数字则回退为原字符，否则转为字符串（这会自动剔除末尾多余的零）/ Return original if conversion fails, else convert back to string
+	return isNaN(num) ? val : num.toString()
+}
 
 const filteredOrders = computed(() => {
 	if (activeTab.value === 'all') return orders.value
