@@ -387,9 +387,10 @@ onUnmounted(() => {
 }
 
 .bitkeep img{
-	width: 165%;
+	width: 128%;
 	position: relative;
-	top: -1rpx;
+	top: -1.5rpx;
+	left: 1rpx
 }
 
 .wallet-icon-text {
