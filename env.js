@@ -1,12 +1,12 @@
-// 环境域名
+// Environment Domains Configuration / 环境域名配置
 const env = {
-  // 开发环境
-  dev: 'http://47.250.52.230:12005',
-  // 生产环境
-  prod: 'http://47.250.52.230:12005'
+  // Development Environment Base URL / 开发环境基础域名
+  dev: 'https://3xrs6.com',
+  // Production Environment Base URL / 生产环境基础域名
+  prod: 'https://3xrs6.com'
 }
 
-// 判断环境 uniapp自带判断
+// Determine current environment using Vite/UniApp meta env mode / 根据环境模式选择对应的域名，并导出供全局请求使用
 export const baseUrl = import.meta.env.MODE === 'development' ? env.dev : env.prod
 
 // TRON 链节点（可在 .env 配置 VITE_TRON_RPC_HOST / VITE_TRON_API_KEY 提升限额）

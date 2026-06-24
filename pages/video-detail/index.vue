@@ -206,32 +206,28 @@ const patchVideoControls = () => {
 	// #endif
 }
 
+// Fetch video details by video ID / 根据视频 ID 从后端获取单个视频详情
 const loadDetail = async (id) => {
-	const res = await proxy.$http.get('/api/videos/'+id)
-	detail.value = {
-		// id: res.id,
-		// title: res.title || '',
-		// description: res.description || '',
-		// views: res.views || 0,
-		// cover: res.cover || '/static/images/video-cover.png',
-		...res,
-		play_url: baseUrl+res.play_url,
+	try {
+		// Call detail API using the video ID / 请求获取单个视频详情接口
+		const res = await proxy.$http.get('/api/videos/' + id)
+		
+		// Map the properties and build the absolute playback URL / 映射返回的数据并构建绝对播放路径
+		detail.value = {
+			...res, // Spread video object properties / 展开后端返回的视频对象属性 (id, title, description, size, created_at, etc.)
+			// Prepend base URL to the play_url relative path / 拼接基础 URL 和 play_url 的相对路径
+			play_url: res.play_url ? (res.play_url.startsWith('http') ? res.play_url : baseUrl + res.play_url) : ''
+		}
+		
+		// Check if the current video is stored in favorites / 查询当前视频是否已被用户收藏
+		favorited.value = isFavorite(res.id)
+		
+		// Initialize video controls layout adjustment / 触发布局和控制条调整
+		patchVideoControls()
+	} catch (error) {
+		// Log integration and load errors / 捕获并记录接口加载详情的错误
+		console.error('Failed to load video details:', error)
 	}
-	favorited.value = isFavorite(res.id)
-	patchVideoControls()
-	// const cache = uni.getStorageSync('videoDetailCache')
-	// if (cache && String(cache.id) === String(id)) {
-	// 	detail.value = {
-	// 		id: cache.id,
-	// 		title: cache.title || cache.description || '内容',
-	// 		description: cache.description || '',
-	// 		views: cache.views || 0,
-	// 		video: buildVideoUrl(cache),
-	// 		cover: cache.cover || '/static/images/video-cover.png',
-	// 		play_url: cache.play_url || ''
-	// 	}
-	// 	favorited.value = isFavorite(cache.id)
-	// }
 }
 
 const formatTime = (sec) => {

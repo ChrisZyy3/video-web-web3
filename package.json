@@ -2,10 +2,12 @@
   "name": "video-web",
   "version": "1.0.0",
   "scripts": {
-    "dev:h5": "uni",
-    "build:h5": "uni build"
+    "dev:h5": "cross-env UNI_INPUT_DIR=. uni",
+    "build:h5": "cross-env UNI_INPUT_DIR=. uni build"
   },
   "dependencies": {
+    "@dcloudio/uni-app": "^3.0.0-alpha-4020420241128001",
+    "@dcloudio/uni-h5": "^3.0.0-alpha-4020420241128001",
     "ethers": "^6.16.0",
     "vue": "^3.4.0",
     "vue-i18n": "^9.14.5",
@@ -13,6 +15,7 @@
   },
   "devDependencies": {
     "@dcloudio/vite-plugin-uni": "^3.0.0-alpha-4020420241128001",
+    "cross-env": "^7.0.3",
     "vite": "^5.0.0"
   }
 }

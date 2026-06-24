@@ -81,7 +81,7 @@
       </view>
 
       <!-- 大图卡片 -->
-      <view class="section-wrap" v-if="featured">
+      <view class="section-wrap" v-if="featured && featured.id">
         <video-card
           :views="featured.views"
           :video-id="'card-video-' + featured.id"
@@ -143,9 +143,9 @@ const baseUrl = proxy.$baseUrl
 const TABBAR_CONTENT_RPX = 110
 const BULGE_EXTRA_RPX = 36
 
-const statusBarHeight = ref(0)
-const scrollHeight = ref(0)
-const bottomSpaceHeight = ref(60)
+const statusBarHeight = ref(getMobilePageLayout().statusBarHeight)
+const scrollHeight = ref(getMobilePageLayout().windowHeight)
+const bottomSpaceHeight = ref(getTabbarInsetPx(TABBAR_CONTENT_RPX, BULGE_EXTRA_RPX))
 const showMemberIntro = ref(false)
 const showMemberSheet = ref(false)
 
@@ -283,27 +283,67 @@ const handleCard = (item) => {
   goVideoDetail(item)
 }
 
-const inputKeywords = ()=> {
-  let list = []
-  if(Keywords.value){
+// Handle keyword search / 关键字搜索过滤逻辑
+const inputKeywords = () => {
+  let list = [] // Temporary search results list / 暂存搜索筛选结果的数组
+  if (Keywords.value) {
+    // Perform search on both title and description safely, handling null/undefined values
+    // 安全地在标题和简介中进行检索，并防止空字段导致运行崩溃
     list = dataList.value.filter((item) => {
-      let text = item.title+item.description
-      return item.description.toLowerCase().includes(Keywords.value.toLowerCase())
+      const title = item.title || '' // Safe fallback for title / 标题防空处理
+      const description = item.description || '' // Safe fallback for description / 简介防空处理
+      const searchTarget = (title + ' ' + description).toLowerCase() // Concat title and description for search / 合并标题与简介进行检索
+      return searchTarget.includes(Keywords.value.toLowerCase()) // Perform case-insensitive search / 执行不区分大小写的搜索
     })
+    
+    // Clear and re-populate the cards based on search results
+    // 清空原视频卡片并根据搜索到的数据进行重新填充
     gridCards.value = []
-    if(list.length>1) gridCards.value = list.slice(1)
-    if(list.length>0) featured.value = list[0]
-  }else{
-    if(dataList.value.length>1) gridCards.value = dataList.value.slice(1)
-    if(dataList.value.length>0) featured.value = dataList.value[0]
+    if (list.length > 1) {
+      gridCards.value = list.slice(1) // Items from index 1 onwards / 从第二个元素起的剩余视频
+    }
+    if (list.length > 0) {
+      featured.value = list[0] // Set the first search result as the featured card / 将第一个搜索到的视频设为首发大图
+    }
+  } else {
+    // If keywords are empty, restore the full video list
+    // 如果没有输入关键字，恢复展示完整的视频列表
+    if (dataList.value.length > 1) {
+      gridCards.value = dataList.value.slice(1) // Items from index 1 onwards / 恢复第二个起的剩余视频
+    }
+    if (dataList.value.length > 0) {
+      featured.value = dataList.value[0] // Restore the first item as the featured card / 恢复第一个视频为首发大图
+    }
   }
 }
 
+// Fetch video list from the backend API / 从后端 API 获取视频列表
 const getList = async () => {
-  const res = await proxy.$http.get('/api/videos')
-  dataList.value = res.items
-  if(res.items.length>1) gridCards.value = res.items.slice(1)
-  if(res.items.length>0) featured.value = res.items[0]
+  try {
+    // Perform GET request to /api/videos endpoint / 请求视频列表接口
+    const res = await proxy.$http.get('/api/videos')
+    // Safe extraction of the items array / 安全获取视频项数组
+    const items = res?.items || []
+    
+    // Store in reactive dataList / 将数据保存到响应式的 dataList
+    dataList.value = items
+    
+    // Assign grid card lists and featured card / 拆分首发卡片及双列网格卡片列表
+    if (items.length > 1) {
+      gridCards.value = items.slice(1) // Remaining items for grid cards / 第二个及之后的视频归入网格展示
+    } else {
+      gridCards.value = []
+    }
+    
+    if (items.length > 0) {
+      featured.value = items[0] // First item is highlighted as featured / 第一个视频作为主打大图展示
+    } else {
+      featured.value = {}
+    }
+  } catch (error) {
+    // Logs the fetch error / 记录列表请求发生的异常
+    console.error('Failed to fetch video list:', error)
+  }
 }
 
 const handleMemberRecharge = () => {
