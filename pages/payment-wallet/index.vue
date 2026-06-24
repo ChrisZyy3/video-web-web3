@@ -88,7 +88,7 @@ import wallet3 from '../../static/images/wallet3.png'
 import wallet4 from '../../static/images/wallet4.png'
 
 const wallets = [
-	//{ id: 'tronlink', name: 'TronLink', abbr: 'TL', bg: wallet1, icon: 'T' },
+	{ id: 'tronlink', name: 'TronLink', abbr: 'TL', bg: wallet1, icon: 'T' },
 	{ id: 'tokenpocket', name: 'TokenPocket', abbr: 'TP', bg: wallet2, icon: 'T' },
 	{ id: 'imtoken', name: 'imToken', abbr: 'im', bg: wallet3, icon: 'I' },
 	{ id: 'bitkeep', name: 'BitKeep', abbr: 'BG', bg: wallet4, icon: 'B' }
