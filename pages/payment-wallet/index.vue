@@ -379,7 +379,7 @@ onUnmounted(() => {
 }
 
 .tokenpocket img{
-	width: 240%;
+	width: 250%;
 }
 
 .imtoken img{
