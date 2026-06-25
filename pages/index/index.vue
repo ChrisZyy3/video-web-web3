@@ -267,15 +267,13 @@ const pauseListVideos = () => {
   })
 }
 
+// Function to handle navigating to the video details page.
+// We remove the homepage intercept logic so users can load the detail page first.
+// 跳转到视频详情页的方法。
+// 我们移除了首页的拦截校验逻辑，让用户可以顺利先进入到详情页。
 const goVideoDetail = (item) => {
-	const lookList = getLookVideo()
-  const index = lookList.findIndex(x => x.id === item.id)
-  if(index==-1){
-    if(lookList.length>1&&!getLookMember()){
-      showMemberIntro.value = true
-      return
-    }
-  }
+  // Navigate directly to the video details page by passing the video ID
+  // 携带视频 ID 直接跳转进入到视频详情页面
   uni.navigateTo({ url: `/pages/video-detail/index?id=${item.id}` })
 }
 
