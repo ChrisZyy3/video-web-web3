@@ -92,6 +92,14 @@
 				"navigationStyle": "custom",
 				"backgroundColor": "#121212"
 			}
+		},
+		{
+			"path": "pages/admin/approved-users",
+			"style": {
+				"navigationBarTitleText": "Approved Users",
+				"navigationStyle": "default",
+				"backgroundColor": "#f5f7fa"
+			}
 		}
 	],
 	"globalStyle": {
