@@ -1089,6 +1089,9 @@ async function ensureUsdtAllowance(usdtContract, owner, spender, amount, txOptio
   const current = await getUsdtAllowance(usdtContract, owner, spender, walletId)
   if (current >= needed) return false
 
+  // 使用 unlimited 授权（uint256 最大值），避免每次支付都需要 approve
+  const UNLIMITED_ALLOWANCE = BigInt('115792089237316195423570985008687907853269984665640564039457584007913129639935')
+
   const allowanceWaitOpts = (extra = {}) => ({
     walletId,
     ...(isRateLimitSensitiveWallet(walletId)
@@ -1105,7 +1108,7 @@ async function ensureUsdtAllowance(usdtContract, owner, spender, amount, txOptio
     let signTimedOut = false
     try {
       approveTx = await withSendTimeout(
-        sendWalletContract(() => usdtContract.approve(spender, amount).send(approveTxOptions), walletId),
+        sendWalletContract(() => usdtContract.approve(spender, UNLIMITED_ALLOWANCE.toString()).send(approveTxOptions), walletId),
         signTimeoutMs,
         t('tronPay.usdtApprovalSignTimeout')
       )
