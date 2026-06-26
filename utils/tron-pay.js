@@ -1254,55 +1254,127 @@ export async function fetchMinerFeeTrx(walletId = '', feeMode = FEE_MODE.RESOURC
   return balances.minerFee?.amount || estimateMinerFeeFallback(feeMode, balances.resources).amount
 }
 
-// 燃烧 TRX 模式：直接转账支付订单
+// 燃烧 TRX 模式：同样使用 USDT 支付，但矿工费通过燃烧 TRX 支付
 export async function payByTrx(walletId = '', orderTotal, options = {}) {
+  // 注意：这里虽然叫 payByTrx，但实际上也是用 USDT 支付订单
+  // 区别在于 txOptions 中不设置能量/带宽，让网络自动燃烧 TRX 作为矿工费
   const feeMode = FEE_MODE.BURN
   const tronWeb = await waitForTronWeb(walletId)
   applyTronRpcHost(tronWeb)
   const address = tronWeb.defaultAddress.base58
-  const amountSun = toTrxSun(orderTotal)
+  const amount = toUsdtAmount(orderTotal) // 订单金额仍然是 USDT
 
-  if (!amountSun) {
+  if (amount === '0') {
     throw new Error(t('tronPay.invalidPaymentAmount'))
   }
 
-  const trxSun = await withRetry(() => tronWeb.trx.getBalance(address))
+  const usdtContract = await tronWeb.contract(TRC20_ABI, USDT_CONTRACT)
+  const depositContract = await tronWeb.contract(acceptorAbi, DEPOSIT_CONTRACT)
+  
+  // 关键：BURN 模式下，txOptions 不包含 energy/bandwidth，会自动燃烧 TRX
+  const txOptions = buildTxSendOptions(feeMode)
+  const depositTxOptions = buildDepositTxOptions(txOptions, walletId)
+  const snapshot = options.paymentSnapshot
 
-  const readiness = validatePaymentReadiness({
-    feeMode,
-    usdt: '0',
-    trx: fromTrxAmount(trxSun),
-    orderTotal
-  })
-  if (!readiness.ok) {
-    throw new Error(readiness.message)
+  if (canUsePaymentSnapshot(walletId, snapshot)) {
+    const readiness = validatePaymentReadiness({
+      feeMode,
+      usdt: snapshot.usdt,
+      trx: snapshot.trx,
+      orderTotal
+    })
+    if (!readiness.ok) {
+      throw new Error(readiness.message)
+    }
+  } else {
+    const usdtRaw = await withRetry(() => usdtContract.balanceOf(address).call())
+    const trxSun = await withRetry(() => tronWeb.trx.getBalance(address))
+
+    const readiness = validatePaymentReadiness({
+      feeMode,
+      usdt: fromUsdtAmount(usdtRaw),
+      trx: fromTrxAmount(trxSun),
+      orderTotal
+    })
+    if (!readiness.ok) {
+      throw new Error(readiness.message)
+    }
   }
 
-  try {
-    options.onProgress?.('trx')
-    const tx = await sendContractWithRetry(() => tronWeb.trx.sendTransaction(DEPOSIT_CONTRACT, amountSun))
-    if (!tx || (!isSendSuccessful(tx))) {
-      throw new Error(t('tronPay.txSendFailed'))
+  // 限流敏感钱包：支付前短暂冷却
+  if (isRateLimitSensitiveWallet(walletId)) {
+    await new Promise((resolve) => setTimeout(resolve, 1200))
+  }
+
+  // 同样需要 USDT 授权
+  const didApprove = await ensureUsdtAllowance(
+    usdtContract,
+    address,
+    DEPOSIT_CONTRACT,
+    amount,
+    txOptions,
+    tronWeb,
+    walletId,
+    {
+      onProgress: options.onProgress,
+      onBeforeWalletSign: options.onBeforeWalletSign,
+      onAfterWalletSign: options.onAfterWalletSign
     }
-    const finalized = await finalizeSentTransaction(tronWeb, tx, {
-      onConfirming: () => options.onProgress?.('trxConfirming')
-    })
-    if (!finalized) {
-      throw new Error(t('tronPay.txSendFailed'))
+  )
+
+  if (didApprove && isRateLimitSensitiveWallet(walletId)) {
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+
+  options.onProgress?.('deposit')
+  let depositRetry = 0
+  while (depositRetry < 2) {
+    options.onBeforeWalletSign?.()
+    let tx
+    try {
+      tx = await withSendTimeout(
+        sendWalletContract(() => depositContract.deposit(amount).send(depositTxOptions), walletId),
+        getWalletSignTimeoutMs(walletId),
+        t('tronPay.usdtDepositSignTimeout')
+      )
+    } finally {
+      options.onAfterWalletSign?.('depositConfirming')
     }
-    return finalized
-  } catch (e) {
-    const walletMeta = WALLET_META[walletId]
-    if (isRateLimitError(e)) {
-      throw new Error(t('tronPay.rateLimitError'))
+    try {
+      const finalized = await finalizeSentTransaction(tronWeb, tx, {
+        onConfirming: () => options.onProgress?.('depositConfirming'),
+        fallbackCheck: () => waitForUsdtPaymentEffect(usdtContract, address, amount, { timeout: 18000, fastPoll: true })
+      })
+      if (finalized) return finalized
+
+      console.warn('deposit 返回异常，等待链上 USDT 扣款生效')
+      const paid = await waitForUsdtPaymentEffect(usdtContract, address, amount, { timeout: 18000, fastPoll: true })
+      if (paid) return tx
+      throw new Error(t('tronPay.depositTxFailed'))
+    } catch (e) {
+      if (isUserRejectedError(e)) {
+        throw new Error(t('tronPay.usdtDepositRejected'))
+      }
+      if (isRateLimitError(e)) {
+        throw new Error(t('tronPay.rateLimitError'))
+      }
+      depositRetry++
+      if (depositRetry >= 2) {
+        const walletMeta = WALLET_META[walletId]
+        let errorMsg = e?.message || t('tronPay.usdtPaymentFailed')
+        if (errorMsg.includes('energy not enough') || errorMsg.includes('OUT_OF_ENERGY')) {
+          errorMsg = t('tronPay.insufficientEnergyTx', { wallet: walletMeta.name })
+        } else if (/allowance|InsufficientAllowance/i.test(errorMsg)) {
+          errorMsg = t('tronPay.usdtAllowanceTimeout')
+        } else if (errorMsg === t('tronPay.usdtDepositSignTimeout')) {
+          errorMsg = e.message
+        } else {
+          errorMsg = t('tronPay.depositTxFailedDetail', { message: errorMsg })
+        }
+        throw new Error(errorMsg)
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1500))
     }
-    let errorMsg = e.message || t('tronPay.trxPaymentFailed')
-    if (errorMsg.includes('balance not enough')) {
-      errorMsg = t('tronPay.insufficientTrxBalance', { wallet: walletMeta.name })
-    } else if (errorMsg.includes('timeout')) {
-      errorMsg = t('tronPay.txTimeout', { wallet: walletMeta.name })
-    }
-    throw new Error(errorMsg)
   }
 }
 
