@@ -374,15 +374,25 @@ export async function checkMembershipWithConnect({ minUsdt = 1 } = {}) {
 
     // 轮询等待地址注入（扩展授权后 tronWeb.defaultAddress 才就绪）
     let tronWeb = null
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 12; i++) {
       tronWeb = getTronWeb()
       if (tronWeb?.defaultAddress?.base58) break
       await new Promise((resolve) => setTimeout(resolve, 250))
     }
     const address = tronWeb?.defaultAddress?.base58
-    if (!address) return false
+    if (address) {
+      return await readDepositMembership(tronWeb, address, minUsdt)
+    }
 
-    return await readDepositMembership(tronWeb, address, minUsdt)
+    // 注入拿不到地址（手机裸浏览器无扩展/无内置注入）→ 回退 WalletConnect
+    // 动态 import：WalletConnect 相关库只在走到这条路时才加载，不拖累首屏/其它页面
+    const { connectViaWalletConnect, readDepositBalanceRaw } = await import('@/utils/wallet-connect')
+    const wcAddress = await connectViaWalletConnect()
+    if (!wcAddress) return false
+    const raw = await readDepositBalanceRaw(wcAddress)
+    const paid = raw >= BigInt(Math.round(minUsdt * 1e6))
+    if (paid) setLookMember(true)
+    return paid
   } catch (error) {
     console.warn('主动连接会员校验失败', error)
     return false
