@@ -16,7 +16,7 @@
           <view class="card amount-card">
             <text class="amount-label">{{ t('payment.amountDue') }}</text>
             <view class="amount-value-row">
-              <text class="amount-value">{{ order.total }}</text>
+              <text class="amount-value">{{ amountDueDisplay }}</text>
               <text class="amount-unit">USDT</text>
             </view>
           </view>
@@ -201,6 +201,13 @@ const warningValid = computed(() => {
     orderTotal: order.value.total
   })
   return check.ok
+})
+
+// 应付金额展示：去掉末尾多余的 0，不做四舍五入（如 1.0000 -> 1，1.5000 -> 1.5）
+const amountDueDisplay = computed(() => {
+  const value = Number(order.value.total)
+  if (Number.isNaN(value)) return order.value.total
+  return String(value)
 })
 
 // 优化钱包状态文案
