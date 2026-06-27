@@ -1,9 +1,9 @@
 // Environment Domains Configuration / 环境域名配置
 const env = {
-  // Development Environment Base URL / 开发环境基础域名
+  // Development Environment Base URL / 开发环境基础域名（本地直连后端）
   dev: 'https://3xrs6.com',
-  // Production Environment Base URL / 生产环境基础域名
-  prod: 'https://3xrs6.com'
+  // Production Environment Base URL / 生产环境留空，走相对路径 /api，由 Vercel rewrites 反代到后端，浏览器同源无跨域
+  prod: ''
 }
 
 // Determine current environment using Vite/UniApp meta env mode / 根据环境模式选择对应的域名，并导出供全局请求使用
