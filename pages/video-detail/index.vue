@@ -260,7 +260,10 @@ const loadDetail = async (id) => {
 		detail.value = {
 			...res, // Spread video object properties / 展开后端返回的视频对象属性 (id, title, description, size, created_at, etc.)
 			// Prepend base URL to the play_url relative path / 拼接基础 URL 和 play_url 的相对路径
-			play_url: res.play_url ? (res.play_url.startsWith('http') ? res.play_url : baseUrl + res.play_url) : ''
+			play_url: res.play_url ? (res.play_url.startsWith('http') ? res.play_url : baseUrl + res.play_url) : '',
+			// Normalize cover_url (relative) into an absolute cover address; empty string when no cover
+			// 将相对路径的 cover_url 拼接为绝对封面地址，无封面时为空字符串（前端回退首帧/占位图）
+			cover: res.cover_url ? (res.cover_url.startsWith('http') ? res.cover_url : baseUrl + res.cover_url) : ''
 		}
 		
 		// Check if the current video is stored in favorites / 查询当前视频是否已被用户收藏
@@ -339,8 +342,6 @@ const handleTogglePlay = () => {
 const handleFavorite = () => {
 	const added = toggleFavorite({
 		id: detail.value.id,
-		views: detail.value.views,
-		video: detail.value.video,
 		cover: detail.value.cover,
 		title: detail.value.title,
 		description: detail.value.description,

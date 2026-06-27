@@ -21,8 +21,6 @@ export function setLookVideo(video) {
 	// 将新的视频对象插入到已看列表的最前面
 	list.unshift({
 		id: video.id,
-		views: video.views,
-		video: video.video,
 		cover: video.cover,
 		title: video.title || video.description || '',
 		description: video.description || '',

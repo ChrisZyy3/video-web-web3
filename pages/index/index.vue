@@ -83,11 +83,11 @@
       <!-- 大图卡片 -->
       <view class="section-wrap" v-if="featured && featured.id">
         <video-card
-          :views="featured.views"
           :video-id="'card-video-' + featured.id"
           size="large"
           :favorited="isFavorited(featured.id)"
           :video="getVideoUrl(featured)"
+          :cover="getCoverUrl(featured)"
           :description="featured.description"
           :autoplay="false"
           :muted="false"
@@ -100,10 +100,10 @@
       <view class="card-grid section-wrap" v-if="gridCards.length>0">
         <view class="card-grid-item" v-for="item in gridCards" :key="item.id">
             <video-card
-            :views="item.views"
             :video-id="'card-video-' + item.id"
             :favorited="isFavorited(item.id)"
             :video="getVideoUrl(item)"
+            :cover="getCoverUrl(item)"
             :description="item.description"
             :autoplay="false"
             :muted="false"
@@ -201,6 +201,14 @@ const getVideoUrl = (item) => {
   if (!item?.play_url) return ''
   if (item.play_url.startsWith('http')) return item.play_url
   return `${baseUrl}${item.play_url}`
+}
+
+// Build absolute cover URL from the relative cover_url; empty string when no cover (falls back to video first frame)
+// 由相对路径 cover_url 拼接绝对封面地址，无封面时返回空字符串（卡片回退到视频首帧）
+const getCoverUrl = (item) => {
+  if (!item?.cover_url) return ''
+  if (item.cover_url.startsWith('http')) return item.cover_url
+  return `${baseUrl}${item.cover_url}`
 }
 
 const handleFavorite = (item) => {
