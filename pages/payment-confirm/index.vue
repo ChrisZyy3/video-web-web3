@@ -12,6 +12,15 @@
             </view>
           </view>
 
+          <!-- 应付金额卡片：突出展示用户本次需要支付的金额 -->
+          <view class="card amount-card">
+            <text class="amount-label">{{ t('payment.amountDue') }}</text>
+            <view class="amount-value-row">
+              <text class="amount-value">{{ order.total }}</text>
+              <text class="amount-unit">USDT</text>
+            </view>
+          </view>
+
           <!-- 钱包连接卡片：增加钱包图标展示 -->
           <view class="card wallet-card">
             <view class="wallet-head">
@@ -625,6 +634,39 @@ onUnmounted(() => {
 	border-radius: 24rpx;
 	padding: 28rpx;
 	box-sizing: border-box;
+}
+
+.amount-card {
+	background: #0F172A;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.amount-label {
+	font-size: 26rpx;
+	color: #94A3B8;
+}
+
+.amount-value-row {
+	margin-top: 12rpx;
+	display: flex;
+	flex-direction: row;
+	align-items: baseline;
+}
+
+.amount-value {
+	font-size: 64rpx;
+	font-weight: 800;
+	color: #fff;
+	line-height: 1;
+}
+
+.amount-unit {
+	margin-left: 12rpx;
+	font-size: 30rpx;
+	font-weight: 700;
+	color: #28AD7B;
 }
 
 .wallet-card {

@@ -12,6 +12,7 @@ export default {
   },
   payment: {
     confirmTitle: '确认支付',
+    amountDue: '应付金额',
     walletConnection: '钱包连接',
     connecting: '连接中',
     connected: '已连接',
@@ -66,7 +67,7 @@ export default {
     brandTitle: 'Media',
     brandSubtitle: '发现更多',
     keywordsPlaceholder: '关键词',
-    notice1: '1. 新用户可免费观看 2 个视频！',
+    notice1: '1. 新用户可免费观看 1 个视频！',
     notice2: '2. 成为会员可观看全部视频！',
     hotMovies: '🔥 热门电影 🔥',
     menu: '菜单',
@@ -96,7 +97,7 @@ export default {
     title: '会员',
     slogan: '充值后可免费观看全部视频',
     benefit1: '· 解锁全部视频无限观看',
-    benefit2: '· 新用户可先免费试看 2 个视频',
+    benefit2: '· 新用户可先免费试看 1 个视频',
     rechargeNow: '立即充值',
     maybeLater: '稍后再说'
   },

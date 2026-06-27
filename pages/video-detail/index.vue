@@ -159,7 +159,7 @@ const isLimitExceeded = () => {
 		currentVideoTitle: detail.value.title || detail.value.description || '--',
 		isVip: isVip,
 		totalPlayCount: playCount,
-		isLimitReached: playCount >= 2,
+		isLimitReached: playCount >= 1,
 		hasBeenCountedThisSession: hasBeenCountedThisSession.value
 	})
 
@@ -167,9 +167,9 @@ const isLimitExceeded = () => {
 	// 会员用户无限制，因此不属于超限
 	if (isVip) return false
 
-	// If total play count is greater than or equal to 2, and it hasn't been counted in this session
-	// 如果累计总播放次数已达到或超过 2，且当前会话在此页面中还未计算过，则判定为超限拦截
-	if (playCount >= 2 && !hasBeenCountedThisSession.value) {
+	// If total play count is greater than or equal to 1, and it hasn't been counted in this session
+	// 如果累计总播放次数已达到或超过 1，且当前会话在此页面中还未计算过，则判定为超限拦截
+	if (playCount >= 1 && !hasBeenCountedThisSession.value) {
 		return true
 	}
 	return false

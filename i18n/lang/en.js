@@ -12,6 +12,7 @@ export default {
   },
   payment: {
     confirmTitle: 'Confirm Payment',
+    amountDue: 'Amount Due',
     walletConnection: 'Wallet Connection',
     connecting: 'Connecting',
     connected: 'Connected',
@@ -66,7 +67,7 @@ export default {
     brandTitle: 'Media',
     brandSubtitle: 'Discover More',
     keywordsPlaceholder: 'Keywords',
-    notice1: '1. New users can watch 2 videos for free!',
+    notice1: '1. New users can watch 1 video for free!',
     notice2: '2. Become a member to watch all videos!',
     hotMovies: '🔥 Hot Movies 🔥',
     menu: 'Menu',
@@ -96,7 +97,7 @@ export default {
     title: 'Membership',
     slogan: 'Recharge to watch all videos for free',
     benefit1: '· Unlock unlimited access to all videos',
-    benefit2: '· New users can try 2 videos for free first',
+    benefit2: '· New users can try 1 video for free first',
     rechargeNow: 'Recharge Now',
     maybeLater: 'Maybe Later'
   },
