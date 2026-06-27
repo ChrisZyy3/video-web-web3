@@ -272,11 +272,8 @@ const loadDetail = async (id) => {
 		// Initialize video controls layout adjustment / 触发布局和控制条调整
 		patchVideoControls()
 
-		// If the user has exceeded their free play limit, show the member promotion popup immediately on load
-		// 如果用户已经达到了免费播放次数上限，则在页面加载完毕后立即强制显示会员引导弹窗
-		if (isLimitExceeded()) {
-			showMemberIntro.value = true
-		}
+		// 不在加载时弹窗：允许用户进入详情页浏览封面/信息，只有当其点击播放键时才触发会员引导弹窗（见 onVideoPlay / handleTogglePlay）
+		// Do not pop on load: let users browse the detail page; the member popup is only triggered when they click play
 	} catch (error) {
 		// Log integration and load errors / 捕获并记录接口加载详情的错误
 		console.error('Failed to load video details:', error)
