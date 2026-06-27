@@ -99,7 +99,11 @@ export default {
     benefit1: '· 解锁全部视频无限观看',
     benefit2: '· 新用户可先免费试看 1 个视频',
     rechargeNow: '立即充值',
-    maybeLater: '稍后再说'
+    maybeLater: '稍后再说',
+    verifyMember: '已是会员？连接钱包验证',
+    verifying: '验证中...',
+    verifySuccess: '验证成功，已解锁',
+    verifyFailed: '未检测到付费记录'
   },
   memberSheet: {
     becomeVip: '成为 VIP',

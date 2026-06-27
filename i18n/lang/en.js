@@ -99,7 +99,11 @@ export default {
     benefit1: '· Unlock unlimited access to all videos',
     benefit2: '· New users can try 1 video for free first',
     rechargeNow: 'Recharge Now',
-    maybeLater: 'Maybe Later'
+    maybeLater: 'Maybe Later',
+    verifyMember: 'Already a member? Connect wallet',
+    verifying: 'Verifying...',
+    verifySuccess: 'Verified, unlocked',
+    verifyFailed: 'No payment record found'
   },
   memberSheet: {
     becomeVip: 'Become VIP',

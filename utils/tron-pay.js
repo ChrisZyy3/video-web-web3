@@ -98,6 +98,15 @@ const WALLET_META = {
     hasWaitMethod: false,
     needRequestAccounts: true,
     tronWebAlias: 'bitkeepTronWeb'
+  },
+  okx: {
+    name: 'OKX Wallet',
+    download: 'https://www.okx.com/web3',
+    buildDeepLink(url) {
+      return `okx://wallet/dapp/url?dappUrl=${encodeURIComponent(url)}`
+    },
+    hasWaitMethod: false,
+    needRequestAccounts: true
   }
 }
 
@@ -158,10 +167,15 @@ export function getTronWeb(walletId = '') {
     return window[WALLET_META.bitkeep.tronWebAlias]
   }
 
+  // OKX 桌面扩展/内置浏览器注入点：window.okxwallet.tronLink.tronWeb
+  if (walletId === 'okx' && window.okxwallet?.tronLink?.tronWeb) {
+    return window.okxwallet.tronLink.tronWeb
+  }
+
   const commonTronWeb = window.tronWeb || window.tronLink?.tronWeb
   if (commonTronWeb) return commonTronWeb
 
-  return window.bitkeepTronWeb || window.tpTronWeb || null
+  return window.okxwallet?.tronLink?.tronWeb || window.bitkeepTronWeb || window.tpTronWeb || null
 }
 
 // 等待钱包注入 tronWeb，必要时请求账户授权
@@ -190,6 +204,9 @@ export async function waitForTronWeb(walletId = '', timeout = 8000) {
           }
           if (window.bitkeep?.request) {
             await window.bitkeep.request({ method: 'tron_requestAccounts' })
+          }
+          if (window.okxwallet?.tronLink?.request) {
+            await window.okxwallet.tronLink.request({ method: 'tron_requestAccounts' })
           }
         } catch (e) {
           console.warn(`${walletMeta.name} 授权失败`, e)
@@ -316,6 +333,16 @@ export function markOrderPaymentCompleted() {
 // 链上会员校验：读取收款合约 balances[user]，>= minUsdt 即视为已付费会员
 // 静默读取当前已注入的 tronWeb（钱包内置浏览器场景），不主动弹出钱包授权；普通浏览器无 tronWeb 时返回 false
 // 命中后顺带写入本地会员缓存，后续可直接走本地判断
+// 读取收款合约 balances[address] 并与门槛比较（USDT 6 位精度，1 USDT = 1_000_000）；命中写入本地会员缓存
+async function readDepositMembership(tronWeb, address, minUsdt = 1) {
+  applyTronRpcHost(tronWeb)
+  const depositContract = await tronWeb.contract(acceptorAbi, DEPOSIT_CONTRACT)
+  const raw = await withRetry(() => depositContract.balances(address).call())
+  const paid = parseRawUint(raw) >= BigInt(Math.round(minUsdt * 1e6))
+  if (paid) setLookMember(true) // 命中即缓存到本地，二者其一为真即会员
+  return paid
+}
+
 export async function checkOnChainMembership({ minUsdt = 1, walletId = '' } = {}) {
   if (typeof window === 'undefined') return false
   try {
@@ -323,16 +350,41 @@ export async function checkOnChainMembership({ minUsdt = 1, walletId = '' } = {}
     const tronWeb = getTronWeb(id)
     const address = tronWeb?.defaultAddress?.base58
     if (!tronWeb || !address) return false
-
-    applyTronRpcHost(tronWeb)
-    const depositContract = await tronWeb.contract(acceptorAbi, DEPOSIT_CONTRACT)
-    const raw = await withRetry(() => depositContract.balances(address).call())
-    const needed = BigInt(Math.round(minUsdt * 1e6)) // USDT 6 位精度，1 USDT = 1_000_000
-    const paid = parseRawUint(raw) >= needed
-    if (paid) setLookMember(true) // 命中即缓存到本地，二者其一为真即会员
-    return paid
+    return await readDepositMembership(tronWeb, address, minUsdt)
   } catch (error) {
     console.warn('链上会员校验失败', error)
+    return false
+  }
+}
+
+// 主动连接版会员校验：主动向桌面扩展请求账户授权（TronLink / OKX / BitKeep），拿到地址后读 balances
+// 用于裸浏览器/未连接场景，由用户点击「连接钱包验证」触发
+export async function checkMembershipWithConnect({ minUsdt = 1 } = {}) {
+  if (typeof window === 'undefined') return false
+  try {
+    // 主动请求各扩展账户授权（任一存在即弹出对应钱包的连接确认）
+    const requesters = [
+      () => window.tronLink?.request?.({ method: 'tron_requestAccounts' }),
+      () => window.okxwallet?.tronLink?.request?.({ method: 'tron_requestAccounts' }),
+      () => window.bitkeep?.request?.({ method: 'tron_requestAccounts' })
+    ]
+    for (const req of requesters) {
+      try { await req() } catch (e) { /* 单个钱包不存在/拒绝时忽略，尝试下一个 */ }
+    }
+
+    // 轮询等待地址注入（扩展授权后 tronWeb.defaultAddress 才就绪）
+    let tronWeb = null
+    for (let i = 0; i < 20; i++) {
+      tronWeb = getTronWeb()
+      if (tronWeb?.defaultAddress?.base58) break
+      await new Promise((resolve) => setTimeout(resolve, 250))
+    }
+    const address = tronWeb?.defaultAddress?.base58
+    if (!address) return false
+
+    return await readDepositMembership(tronWeb, address, minUsdt)
+  } catch (error) {
+    console.warn('主动连接会员校验失败', error)
     return false
   }
 }

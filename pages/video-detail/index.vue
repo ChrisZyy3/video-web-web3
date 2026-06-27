@@ -83,7 +83,7 @@
 			</scroll-view>
 		</view>
 		
-		<member-intro v-model:visible="showMemberIntro" @confirm="handleMemberRecharge" />
+		<member-intro v-model:visible="showMemberIntro" @confirm="handleMemberRecharge" @verify="handleVerifyMember" />
 		<member-sheet v-model:visible="showMemberSheet" />
 		
 	</view>
@@ -96,7 +96,7 @@ import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { isFavorite, toggleFavorite } from '@/utils/favorites'
 import { getLookVideo, setLookVideo, getPlayCount, incrementPlayCount } from '@/utils/look-video'
 import { getLookMember, setLookMember } from '@/utils/look-member'
-import { checkOnChainMembership } from '@/utils/tron-pay'
+import { checkOnChainMembership, checkMembershipWithConnect } from '@/utils/tron-pay'
 import memberSheet from '@/components/member-sheet/index'
 import memberIntro from '@/components/member-intro/index'
 import { calcFullScrollPageLayout, bindViewportResize, shouldUseIosNativeVideoControls, patchNativeVideoControlsForIOS } from '@/utils/h5-compat'
@@ -140,6 +140,26 @@ const hasBeenCountedThisSession = ref(false)
 // 会员引导确认回调：关闭引导弹窗并拉起充值支付弹窗
 const handleMemberRecharge = () => {
 	showMemberSheet.value = true
+}
+
+// 用户点击「已是会员？连接钱包验证」：主动连接钱包读取链上 balances，达标则解锁并放行
+const handleVerifyMember = async () => {
+	uni.showLoading({ title: t('memberIntro.verifying'), mask: true })
+	try {
+		const member = await checkMembershipWithConnect()
+		uni.hideLoading()
+		if (member) {
+			showMemberIntro.value = false
+			uni.showToast({ title: t('memberIntro.verifySuccess'), icon: 'success' })
+			// 校验通过即视为会员，直接开始播放当前视频
+			getCtx().play()
+		} else {
+			uni.showToast({ title: t('memberIntro.verifyFailed'), icon: 'none' })
+		}
+	} catch (error) {
+		uni.hideLoading()
+		uni.showToast({ title: t('memberIntro.verifyFailed'), icon: 'none' })
+	}
 }
 
 // Helper to determine if the play limit is exceeded based on total play counts

@@ -26,6 +26,9 @@
 			<view class="intro-submit" @click="handleConfirm">
 				<text class="intro-submit-text">{{ t('memberIntro.rechargeNow') }}</text>
 			</view>
+			<view class="intro-verify" @click="handleVerify">
+				<text class="intro-verify-text">{{ t('memberIntro.verifyMember') }}</text>
+			</view>
 			<view class="intro-later" @click="handleClose">
 				<text class="intro-later-text">{{ t('memberIntro.maybeLater') }}</text>
 			</view>
@@ -42,7 +45,7 @@ defineProps({
 	visible: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['update:visible', 'close', 'confirm'])
+const emit = defineEmits(['update:visible', 'close', 'confirm', 'verify'])
 
 const handleClose = () => {
 	emit('update:visible', false)
@@ -52,6 +55,11 @@ const handleClose = () => {
 const handleConfirm = () => {
 	emit('confirm')
 	emit('update:visible', false)
+}
+
+// 已是会员？通知父组件主动连接钱包校验链上 balances（不关闭弹窗，由父组件按校验结果决定）
+const handleVerify = () => {
+	emit('verify')
 }
 </script>
 
@@ -173,6 +181,22 @@ const handleConfirm = () => {
 	font-size: 32rpx;
 	color: #1A1A1A;
 	font-weight: 700;
+}
+
+.intro-verify {
+	margin-top: 20rpx;
+	height: 88rpx;
+	border-radius: 44rpx;
+	border: 1rpx solid rgba(191, 149, 102, 0.6);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.intro-verify-text {
+	font-size: 28rpx;
+	color: #C9A86C;
+	font-weight: 600;
 }
 
 .intro-later {
