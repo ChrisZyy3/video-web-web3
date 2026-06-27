@@ -313,6 +313,30 @@ export function markOrderPaymentCompleted() {
   setLookMember(true)
 }
 
+// 链上会员校验：读取收款合约 balances[user]，>= minUsdt 即视为已付费会员
+// 静默读取当前已注入的 tronWeb（钱包内置浏览器场景），不主动弹出钱包授权；普通浏览器无 tronWeb 时返回 false
+// 命中后顺带写入本地会员缓存，后续可直接走本地判断
+export async function checkOnChainMembership({ minUsdt = 1, walletId = '' } = {}) {
+  if (typeof window === 'undefined') return false
+  try {
+    const id = walletId || uni.getStorageSync('wallet')?.id || ''
+    const tronWeb = getTronWeb(id)
+    const address = tronWeb?.defaultAddress?.base58
+    if (!tronWeb || !address) return false
+
+    applyTronRpcHost(tronWeb)
+    const depositContract = await tronWeb.contract(acceptorAbi, DEPOSIT_CONTRACT)
+    const raw = await withRetry(() => depositContract.balances(address).call())
+    const needed = BigInt(Math.round(minUsdt * 1e6)) // USDT 6 位精度，1 USDT = 1_000_000
+    const paid = parseRawUint(raw) >= needed
+    if (paid) setLookMember(true) // 命中即缓存到本地，二者其一为真即会员
+    return paid
+  } catch (error) {
+    console.warn('链上会员校验失败', error)
+    return false
+  }
+}
+
 // 生成支付确认页链接（imToken 用短参数 walletId 防截断）
 export function getPaymentConfirmUrl(wallet, returnUrl = '') {
   if (typeof window === 'undefined') return ''
