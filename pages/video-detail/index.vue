@@ -275,6 +275,13 @@ const patchVideoControls = () => {
 
 // Fetch video details by video ID / 根据视频 ID 从后端获取单个视频详情
 const loadDetail = async (id) => {
+	// 显示详情加载提示
+	// Show details loading indicator
+	uni.showLoading({
+		title: t('videoDetail.loading'),
+		mask: true
+	})
+	
 	try {
 		// Call detail API using the video ID / 请求获取单个视频详情接口
 		const res = await proxy.$http.get('/api/videos/' + id)
@@ -300,6 +307,18 @@ const loadDetail = async (id) => {
 	} catch (error) {
 		// Log integration and load errors / 捕获并记录接口加载详情的错误
 		console.error('Failed to load video details:', error)
+		
+		// 显示详情加载失败提示
+		// Show details load failure toast
+		uni.showToast({
+			title: t('videoDetail.loadFailed'),
+			icon: 'none',
+			duration: 3000
+		})
+	} finally {
+		// 关闭加载提示
+		// Dismiss loading indicator
+		uni.hideLoading()
 	}
 }
 
@@ -315,8 +334,15 @@ const onTimeUpdate = (e) => {
 	duration.value = e.detail.duration || duration.value
 }
 
-const onVideoError = () => {
-	// uni.showToast({ title: '视频加载失败', icon: 'none' })
+// 视频文件加载失败时的事件回调，弹出警告提示
+// Callback when video file loading fails, displays alert toast
+const onVideoError = (e) => {
+	console.error('Video player source error:', e)
+	uni.showToast({
+		title: t('videoDetail.videoLoadError'),
+		icon: 'none',
+		duration: 3000
+	})
 }
 
 const onVideoPlay = async () => {

@@ -73,7 +73,10 @@ export default {
     menu: 'Menu',
     more: 'More',
     allCategories: 'All Categories',
-    category: 'Category'
+    category: 'Category',
+    // 列表加载与失败提示 / List loading and failure prompts
+    loading: 'Loading video list...',
+    loadFailed: 'Failed to load video list'
   },
   tabbar: {
     home: 'Home',
@@ -91,7 +94,11 @@ export default {
     downloading: 'Downloading...',
     downloadingProgress: 'Downloading {percent}%',
     downloadFailed: 'Download failed',
-    failedToOpenFile: 'Failed to open file'
+    failedToOpenFile: 'Failed to open file',
+    // 详情加载与播放失败提示 / Details loading and video playback failure prompts
+    loading: 'Loading video details...',
+    loadFailed: 'Failed to load video details',
+    videoLoadError: 'Failed to load video file'
   },
   // VIP介绍模块英文相关文案配置（已移除“Member”等词汇，改为“VIP”或“Guest”）
   // Translation configuration for the VIP intro module in English (replaced "Member" with "VIP" or "Guest")

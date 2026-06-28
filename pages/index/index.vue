@@ -332,6 +332,13 @@ const inputKeywords = () => {
 
 // Fetch video list from the backend API / 从后端 API 获取视频列表
 const getList = async () => {
+  // 显示列表加载中提示
+  // Show list loading indicator
+  uni.showLoading({
+    title: t('index.loading'),
+    mask: true
+  })
+  
   try {
     // Perform GET request to /api/videos endpoint / 请求视频列表接口
     const res = await proxy.$http.get('/api/videos')
@@ -356,6 +363,18 @@ const getList = async () => {
   } catch (error) {
     // Logs the fetch error / 记录列表请求发生的异常
     console.error('Failed to fetch video list:', error)
+    
+    // 显示列表加载失败提示
+    // Show list load failure toast
+    uni.showToast({
+      title: t('index.loadFailed'),
+      icon: 'none',
+      duration: 3000
+    })
+  } finally {
+    // 关闭加载提示
+    // Dismiss loading indicator
+    uni.hideLoading()
   }
 }
 
