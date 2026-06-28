@@ -2,7 +2,7 @@ import acceptorAbi from '@/utils/UsdtAccepter.json'
 import i18n from '@/i18n'
 import { tronRpc } from '@/env'
 // 引入设置会员已支付状态的本地记录函数 / Import the function to set paid member status locally
-import { setLookMember } from '@/utils/look-member'
+import { setLookMember, getLookMember } from '@/utils/look-member'
 
 // 读取 i18n 文案
 function t(key, params) {
@@ -328,6 +328,24 @@ export function setConnectedWalletAddress(address) {
 }
 export function getConnectedWalletAddress() {
   return uni.getStorageSync('walletAddress') || ''
+}
+
+// 全局会员刷新：已连接钱包时，凭已存地址静默读链上 balances 重判会员（不唤起钱包）
+// 已是本地会员则直接跳过；命中则写本地缓存。供 App 启动 / 进页面调用，实现跨页自动判定
+export async function refreshMembershipByStoredAddress(minUsdt = 1) {
+  if (typeof window === 'undefined') return false
+  if (getLookMember()) return true // 已是会员，无需再查
+  const address = getConnectedWalletAddress()
+  if (!address) return false
+  try {
+    const { readDepositBalanceByAddress } = await import('@/utils/wallet-adapters')
+    const paid = await readDepositBalanceByAddress(address, minUsdt)
+    if (paid) setLookMember(true)
+    return paid
+  } catch (error) {
+    console.warn('按已连接地址刷新会员失败', error)
+    return false
+  }
 }
 
 // 清除待支付订单缓存，并同步标记本地已支付/已购买状态 / Clear pending order cache and mark the local member status as paid

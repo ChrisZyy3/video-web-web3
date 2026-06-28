@@ -26,7 +26,7 @@
 			<view class="intro-submit" @click="handleConfirm">
 				<text class="intro-submit-text">{{ t('memberIntro.rechargeNow') }}</text>
 			</view>
-			<view class="intro-verify" @click="handleVerify">
+			<view v-if="showVerify" class="intro-verify" @click="handleVerify">
 				<text class="intro-verify-text">{{ t('memberIntro.verifyMember') }}</text>
 			</view>
 			<view class="intro-later" @click="handleClose">
@@ -42,7 +42,9 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
 defineProps({
-	visible: { type: Boolean, default: false }
+	visible: { type: Boolean, default: false },
+	// 是否显示「连接钱包验证」按钮：已连接钱包后应隐藏，避免重复提示连接
+	showVerify: { type: Boolean, default: true }
 })
 
 const emit = defineEmits(['update:visible', 'close', 'confirm', 'verify'])

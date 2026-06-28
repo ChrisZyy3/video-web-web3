@@ -38,6 +38,16 @@ async function getReader() {
   return reader
 }
 
+// 按已知地址只读读 balances（不唤起任何钱包）：用于已连接后跨页静默重判会员
+export async function readDepositBalanceByAddress(address, minUsdt = 1) {
+  if (!address) return false
+  const tronWeb = await getReader()
+  const contract = await tronWeb.contract(acceptorAbi, DEPOSIT_CONTRACT)
+  const raw = await contract.balances(address).call()
+  const value = BigInt(raw?._hex ?? raw?.toString?.() ?? '0')
+  return value >= BigInt(Math.round(minUsdt * 1e6))
+}
+
 // WalletConnect：连接拿地址（扫码/跳转）后读链上 balances，判断是否达到会员门槛
 export async function connectAndReadMembershipWC(minUsdt = 1) {
   const adapter = await getWcAdapter()

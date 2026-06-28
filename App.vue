@@ -1,8 +1,11 @@
 <script setup>
 import { onLaunch, onShow, onHide } from '@dcloudio/uni-app'
+import { refreshMembershipByStoredAddress } from '@/utils/tron-pay'
 
 onLaunch(() => {
 	console.log('App Launch')
+	// 全局：若已连接过钱包，凭已存地址静默重判会员状态（不唤起钱包），跨页一致
+	refreshMembershipByStoredAddress()
 })
 
 onShow(() => {

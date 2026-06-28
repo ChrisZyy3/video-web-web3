@@ -74,7 +74,7 @@
 			</scroll-view>
 		</view>
 		
-		<member-intro v-model:visible="showMemberIntro" @confirm="handleMemberRecharge" @verify="handleVerifyMember" />
+		<member-intro v-model:visible="showMemberIntro" :show-verify="!connectedAddress" @confirm="handleMemberRecharge" @verify="handleVerifyMember" />
 		<member-sheet v-model:visible="showMemberSheet" />
 		<wallet-select v-model:visible="showWalletSelect" @select="handleWalletSelected" />
 		
@@ -88,7 +88,7 @@ import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { isFavorite, toggleFavorite } from '@/utils/favorites'
 import { getLookVideo, setLookVideo, getPlayCount, incrementPlayCount } from '@/utils/look-video'
 import { getLookMember, setLookMember } from '@/utils/look-member'
-import { checkOnChainMembership, verifyMembershipByWallet } from '@/utils/tron-pay'
+import { checkOnChainMembership, verifyMembershipByWallet, getConnectedWalletAddress } from '@/utils/tron-pay'
 import memberSheet from '@/components/member-sheet/index'
 import memberIntro from '@/components/member-intro/index'
 import walletSelect from '@/components/wallet-select/index'
@@ -128,6 +128,7 @@ const detail = ref({
 const showMemberSheet = ref(false)
 const showMemberIntro = ref(false)
 const showWalletSelect = ref(false)
+const connectedAddress = ref(getConnectedWalletAddress())
 const hasBeenCountedThisSession = ref(false)
 
 // Function to trigger opening of the purchase/recharge sheet when user confirms in member-intro popup
@@ -148,6 +149,7 @@ const handleWalletSelected = async (walletId) => {
 	showWalletSelect.value = false
 	try {
 		const member = await verifyMembershipByWallet(walletId)
+		connectedAddress.value = getConnectedWalletAddress() // 连接后刷新，隐藏验证按钮
 		if (member) {
 			showMemberIntro.value = false
 			uni.showToast({ title: t('memberIntro.verifySuccess'), icon: 'success' })

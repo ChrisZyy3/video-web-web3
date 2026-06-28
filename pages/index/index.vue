@@ -118,7 +118,7 @@
 
     <tabbar />
 
-    <member-intro v-model:visible="showMemberIntro" @confirm="handleMemberRecharge" @verify="handleVerifyMember" />
+    <member-intro v-model:visible="showMemberIntro" :show-verify="!connectedAddress" @confirm="handleMemberRecharge" @verify="handleVerifyMember" />
     <member-sheet v-model:visible="showMemberSheet" />
     <wallet-select v-model:visible="showWalletSelect" @select="handleWalletSelected" />
   </view>
@@ -136,7 +136,7 @@ import walletSelect from '@/components/wallet-select/index'
 import { getFavorites, toggleFavorite } from '@/utils/favorites'
 import { getLookVideo, setLookVideo, removeLookVideo } from '@/utils/look-video'
 import { getLookMember, setLookMember } from '@/utils/look-member'
-import { verifyMembershipByWallet } from '@/utils/tron-pay'
+import { verifyMembershipByWallet, getConnectedWalletAddress, refreshMembershipByStoredAddress } from '@/utils/tron-pay'
 import { getMobilePageLayout, getTabbarInsetPx, bindViewportResize } from '@/utils/h5-compat'
 
 const { t } = useI18n()
@@ -152,6 +152,7 @@ const bottomSpaceHeight = ref(getTabbarInsetPx(TABBAR_CONTENT_RPX, BULGE_EXTRA_R
 const showMemberIntro = ref(false)
 const showMemberSheet = ref(false)
 const showWalletSelect = ref(false)
+const connectedAddress = ref(getConnectedWalletAddress())
 
 const COVER_SRC = '/static/images/video-cover.png'
 const noticeText = computed(() => [t('index.notice1'), t('index.notice2')])
@@ -371,6 +372,7 @@ const handleWalletSelected = async (walletId) => {
   showWalletSelect.value = false
   try {
     const member = await verifyMembershipByWallet(walletId)
+    connectedAddress.value = getConnectedWalletAddress() // 连接后刷新，隐藏验证按钮
     if (member) {
       showMemberIntro.value = false
       uni.showToast({ title: t('memberIntro.verifySuccess'), icon: 'success' })
@@ -383,14 +385,17 @@ const handleWalletSelected = async (walletId) => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   calcLayout()
   // #ifdef H5
   unbindViewport = bindViewportResize(calcLayout)
   // #endif
   syncFavorites()
   getList()
-  showMemberIntro.value = true
+  // 已是会员不弹促销；否则先弹，再凭已连接地址静默重判，若判定为会员则关闭
+  showMemberIntro.value = !getLookMember()
+  const member = await refreshMembershipByStoredAddress()
+  if (member) showMemberIntro.value = false
 })
 
 onUnmounted(() => {
