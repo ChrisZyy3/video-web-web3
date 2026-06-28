@@ -120,6 +120,7 @@
 
     <member-intro v-model:visible="showMemberIntro" @confirm="handleMemberRecharge" @verify="handleVerifyMember" />
     <member-sheet v-model:visible="showMemberSheet" />
+    <wallet-select v-model:visible="showWalletSelect" @select="handleWalletSelected" />
   </view>
 </template>
 
@@ -131,10 +132,11 @@ import tabbar from '@/components/tabbar/index'
 import videoCard from '@/components/video-card/index'
 import memberIntro from '@/components/member-intro/index'
 import memberSheet from '@/components/member-sheet/index'
+import walletSelect from '@/components/wallet-select/index'
 import { getFavorites, toggleFavorite } from '@/utils/favorites'
 import { getLookVideo, setLookVideo, removeLookVideo } from '@/utils/look-video'
 import { getLookMember, setLookMember } from '@/utils/look-member'
-import { checkMembershipWithConnect } from '@/utils/tron-pay'
+import { verifyMembershipByWallet } from '@/utils/tron-pay'
 import { getMobilePageLayout, getTabbarInsetPx, bindViewportResize } from '@/utils/h5-compat'
 
 const { t } = useI18n()
@@ -149,6 +151,7 @@ const scrollHeight = ref(getMobilePageLayout().windowHeight)
 const bottomSpaceHeight = ref(getTabbarInsetPx(TABBAR_CONTENT_RPX, BULGE_EXTRA_RPX))
 const showMemberIntro = ref(false)
 const showMemberSheet = ref(false)
+const showWalletSelect = ref(false)
 
 const COVER_SRC = '/static/images/video-cover.png'
 const noticeText = computed(() => [t('index.notice1'), t('index.notice2')])
@@ -357,11 +360,17 @@ const handleMemberRecharge = () => {
   showMemberSheet.value = true
 }
 
-// 用户点击「已是会员？连接钱包验证」：主动连接钱包读取链上 balances，达标则关闭弹窗
-const handleVerifyMember = async () => {
+// 用户点击「已是会员？连接钱包验证」：弹出钱包选择
+const handleVerifyMember = () => {
+  showWalletSelect.value = true
+}
+
+// 用户在选择弹窗里选定钱包：连接该钱包读取链上 balances，达标则关闭弹窗
+const handleWalletSelected = async (walletId) => {
+  showWalletSelect.value = false
   uni.showLoading({ title: t('memberIntro.verifying'), mask: true })
   try {
-    const member = await checkMembershipWithConnect()
+    const member = await verifyMembershipByWallet(walletId)
     uni.hideLoading()
     if (member) {
       showMemberIntro.value = false

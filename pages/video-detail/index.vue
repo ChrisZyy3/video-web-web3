@@ -85,6 +85,7 @@
 		
 		<member-intro v-model:visible="showMemberIntro" @confirm="handleMemberRecharge" @verify="handleVerifyMember" />
 		<member-sheet v-model:visible="showMemberSheet" />
+		<wallet-select v-model:visible="showWalletSelect" @select="handleWalletSelected" />
 		
 	</view>
 </template>
@@ -96,9 +97,10 @@ import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { isFavorite, toggleFavorite } from '@/utils/favorites'
 import { getLookVideo, setLookVideo, getPlayCount, incrementPlayCount } from '@/utils/look-video'
 import { getLookMember, setLookMember } from '@/utils/look-member'
-import { checkOnChainMembership, checkMembershipWithConnect } from '@/utils/tron-pay'
+import { checkOnChainMembership, verifyMembershipByWallet } from '@/utils/tron-pay'
 import memberSheet from '@/components/member-sheet/index'
 import memberIntro from '@/components/member-intro/index'
+import walletSelect from '@/components/wallet-select/index'
 import { calcFullScrollPageLayout, bindViewportResize, shouldUseIosNativeVideoControls, patchNativeVideoControlsForIOS } from '@/utils/h5-compat'
 import { useVideoFirstFramePoster } from '@/utils/use-video-poster'
 import { applyNativeVideoPoster } from '@/utils/video-poster'
@@ -134,6 +136,7 @@ const detail = ref({
 
 const showMemberSheet = ref(false)
 const showMemberIntro = ref(false)
+const showWalletSelect = ref(false)
 const hasBeenCountedThisSession = ref(false)
 
 // Function to trigger opening of the purchase/recharge sheet when user confirms in member-intro popup
@@ -142,11 +145,17 @@ const handleMemberRecharge = () => {
 	showMemberSheet.value = true
 }
 
-// 用户点击「已是会员？连接钱包验证」：主动连接钱包读取链上 balances，达标则解锁并放行
-const handleVerifyMember = async () => {
+// 用户点击「已是会员？连接钱包验证」：弹出钱包选择，由用户选定要连接的钱包
+const handleVerifyMember = () => {
+	showWalletSelect.value = true
+}
+
+// 用户在选择弹窗里选定钱包：连接该钱包读取链上 balances，达标则解锁并放行
+const handleWalletSelected = async (walletId) => {
+	showWalletSelect.value = false
 	uni.showLoading({ title: t('memberIntro.verifying'), mask: true })
 	try {
-		const member = await checkMembershipWithConnect()
+		const member = await verifyMembershipByWallet(walletId)
 		uni.hideLoading()
 		if (member) {
 			showMemberIntro.value = false

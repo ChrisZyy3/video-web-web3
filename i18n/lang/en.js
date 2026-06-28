@@ -101,6 +101,7 @@ export default {
     rechargeNow: 'Recharge Now',
     maybeLater: 'Maybe Later',
     verifyMember: 'Already a member? Connect wallet',
+    selectWalletTitle: 'Select wallet to verify',
     verifying: 'Verifying...',
     verifySuccess: 'Verified, unlocked',
     verifyFailed: 'No payment record found'
