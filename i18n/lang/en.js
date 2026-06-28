@@ -136,6 +136,7 @@ export default {
     version: 'Version',
     nonMember: 'Non-member',
     becomeMember: 'Become a Member',
+    connectWallet: 'Connect Wallet',
     logIn: 'Log In',
     changePassword: 'Change Password',
     orderDetails: 'Order Details',

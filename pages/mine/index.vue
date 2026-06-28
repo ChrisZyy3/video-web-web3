@@ -71,6 +71,12 @@
 				</view>
 			</view>
 
+			<view class="action-btns">
+				<view class="btn-outline" @click="handleConnectWallet">
+					<text class="btn-outline-text">{{ t('mine.connectWallet') }}</text>
+				</view>
+			</view>
+
 			<!-- <view class="qrcode-section">
 				<view class="qrcode-card" @click="handleQrPreview">
 					<image class="qrcode-img" :src="icons.qrcode" mode="aspectFit" />
@@ -97,6 +103,7 @@
 		<tabbar />
 
 		<member-sheet v-model:visible="showMemberSheet" />
+		<wallet-select v-model:visible="showWalletSelect" @select="handleWalletSelected" />
 	</view>
 </template>
 
@@ -105,6 +112,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import tabbar from '@/components/tabbar/index'
 import memberSheet from '@/components/member-sheet/index'
+import walletSelect from '@/components/wallet-select/index'
+import { verifyMembershipByWallet } from '@/utils/tron-pay'
 import { getMobilePageLayout, getTabbarInsetPx, bindViewportResize } from '@/utils/h5-compat'
 
 const { t, locale } = useI18n()
@@ -119,6 +128,7 @@ const statusBarHeight = ref(0)
 const scrollHeight = ref(0)
 const bottomSpaceHeight = ref(60)
 const showMemberSheet = ref(false)
+const showWalletSelect = ref(false)
 
 const currentLangLabel = computed(() =>
 	locale.value === 'zh-CN' ? t('mine.langZh') : t('mine.langEn')
@@ -166,6 +176,27 @@ const handleLogout = () => {
 
 const handleMember = () => {
 	showMemberSheet.value = true
+}
+
+// 点击「连接钱包」：弹出钱包选择
+const handleConnectWallet = () => {
+	showWalletSelect.value = true
+}
+
+// 选定钱包后连接并校验会员（链上 balances）
+const handleWalletSelected = async (walletId) => {
+	showWalletSelect.value = false
+	try {
+		const member = await verifyMembershipByWallet(walletId)
+		uni.showToast({
+			title: member ? t('memberIntro.verifySuccess') : t('memberIntro.verifyFailed'),
+			icon: member ? 'success' : 'none',
+			duration: member ? 2000 : 3000
+		})
+	} catch (error) {
+		console.warn('连接钱包失败', error)
+		uni.showToast({ title: error?.message || t('memberIntro.verifyFailed'), icon: 'none', duration: 3000 })
+	}
 }
 
 const handleLogin = () => {

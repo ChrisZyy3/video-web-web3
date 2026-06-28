@@ -136,6 +136,7 @@ export default {
     version: '版本',
     nonMember: '非会员',
     becomeMember: '成为会员',
+    connectWallet: '连接钱包',
     logIn: '登录',
     changePassword: '修改密码',
     orderDetails: '订单详情',
