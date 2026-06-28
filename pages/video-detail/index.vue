@@ -63,20 +63,11 @@
 					<text v-if="detail.description" class="info-desc">{{ detail.description }}</text>
 				</view>
 
-				<view class="action-row">
-					<view v-if="!useIosNativeControls" class="action-btn action-btn--primary" @click="handleTogglePlay">
+				<view v-if="!useIosNativeControls" class="action-row">
+					<view class="action-btn action-btn--primary action-btn--full" @click="handleTogglePlay">
 						<image class="action-icon" :src="playing ? icons.pause : icons.play" mode="aspectFit" />
 						<text class="action-text">{{ playing ? t('videoDetail.pause') : t('videoDetail.play') }}</text>
 					</view>
-					<view class="action-btn action-btn--outline" :class="{ 'action-btn--full': useIosNativeControls }" @click="handleDownload">
-						<image class="action-icon" :src="icons.download" mode="aspectFit" />
-						<text class="action-text action-text--gold">{{ t('videoDetail.download') }}</text>
-					</view>
-				</view>
-
-				<view class="tip-card">
-					<image class="tip-icon" :src="icons.info" mode="aspectFit" />
-					<text class="tip-text">{{ t('videoDetail.downloadTip') }}</text>
 				</view>
 
 				<view class="bottom-space" :style="{ height: bottomSpaceHeight + 'px' }" />
