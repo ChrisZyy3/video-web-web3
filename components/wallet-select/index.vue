@@ -55,7 +55,7 @@ const loadWallets = async () => {
 	loading.value = true
 	loadError.value = false
 	try {
-		const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('wallet list timeout')), 10000))
+		const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('wallet list timeout')), 20000))
 		const { listWallets } = await Promise.race([import('@/utils/wallet-adapters'), timeout])
 		wallets.value = listWallets()
 	} catch (e) {

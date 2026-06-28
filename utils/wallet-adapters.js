@@ -1,4 +1,3 @@
-import { TronWeb } from 'tronweb'
 import { TronLinkAdapter } from '@tronweb3/tronwallet-adapter-tronlink'
 import { OkxWalletAdapter } from '@tronweb3/tronwallet-adapter-okxwallet'
 import { TokenPocketAdapter } from '@tronweb3/tronwallet-adapter-tokenpocket'
@@ -67,9 +66,11 @@ export function listWallets() {
 }
 
 // 独立只读 TronWeb 实例：连公共节点读链，不依赖钱包注入
+// tronweb 体积较大且只在「读 balances」时才需要，动态加载以免拖慢列表 chunk
 let reader = null
-function getReader() {
+async function getReader() {
   if (!reader) {
+    const { TronWeb } = await import('tronweb')
     reader = new TronWeb({
       fullHost: tronRpc.host,
       headers: tronRpc.apiKey ? { 'TRON-PRO-API-KEY': tronRpc.apiKey } : {}
@@ -91,7 +92,8 @@ export async function connectAndReadMembership(walletId, minUsdt = 1) {
   const address = adapter.address
   if (!address) return false
 
-  const contract = await getReader().contract(acceptorAbi, DEPOSIT_CONTRACT)
+  const tronWeb = await getReader()
+  const contract = await tronWeb.contract(acceptorAbi, DEPOSIT_CONTRACT)
   const raw = await contract.balances(address).call()
   const value = BigInt(raw?._hex ?? raw?.toString?.() ?? '0')
   return value >= BigInt(Math.round(minUsdt * 1e6))
