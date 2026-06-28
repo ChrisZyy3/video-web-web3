@@ -15,11 +15,14 @@
       <!-- 双列卡片 -->
       <view v-if="gridCards.length" class="card-grid section-wrap">
         <view v-for="item in gridCards" :key="item.id" class="card-grid-item">
+          <!-- 收藏视频卡片：传递 title 字段作为展示文案 -->
+          <!-- Favorite video card: passing title field as display text -->
           <video-card
             :views="item.views"
             :video="item.video"
             :cover="item.cover"
             :video-id="'card-video-' + item.id"
+            :description="item.title"
             :favorited="true"
             @click="handleCard(item)"
             @favorite="handleFavorite(item)"

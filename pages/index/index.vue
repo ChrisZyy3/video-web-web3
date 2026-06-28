@@ -80,7 +80,8 @@
         </view>
       </view>
 
-      <!-- 大图卡片 -->
+      <!-- 大图卡片：将 description 属性修改为传递视频的 title 标题进行展示 -->
+      <!-- Featured card: changing description property to pass video's title for display -->
       <view class="section-wrap" v-if="featured && featured.id">
         <video-card
           :video-id="'card-video-' + featured.id"
@@ -88,7 +89,7 @@
           :favorited="isFavorited(featured.id)"
           :video="getVideoUrl(featured)"
           :cover="getCoverUrl(featured)"
-          :description="featured.description"
+          :description="featured.title"
           :autoplay="false"
           :muted="false"
           @click="handleCard(featured)"
@@ -96,7 +97,8 @@
         />
       </view>
 
-      <!-- 双列卡片 -->
+      <!-- 双列卡片：同样将 description 属性修改为传递视频的 title 标题进行展示 -->
+      <!-- Grid cards: similarly changing description property to pass video's title for display -->
       <view class="card-grid section-wrap" v-if="gridCards.length>0">
         <view class="card-grid-item" v-for="item in gridCards" :key="item.id">
             <video-card
@@ -104,7 +106,7 @@
             :favorited="isFavorited(item.id)"
             :video="getVideoUrl(item)"
             :cover="getCoverUrl(item)"
-            :description="item.description"
+            :description="item.title"
             :autoplay="false"
             :muted="false"
             @click="handleCard(item)"
