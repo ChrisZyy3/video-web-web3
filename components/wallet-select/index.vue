@@ -39,14 +39,16 @@ defineProps({
 
 const emit = defineEmits(['update:visible', 'select'])
 
-// 与 payment-wallet 页一致的 4 个钱包（同图标）+ OKX + WalletConnect
+// 与 payment-wallet 页一致的 4 个钱包（同图标）+ OKX
+// 注：WalletConnect 暂时隐藏——其依赖的 Reown/relay 在当前网络不可达（Failed to fetch / Proposal expired）。
+// 连接与依赖逻辑均保留，换网络可达后取消下方注释即可恢复。
 const wallets = [
 	{ id: 'tronlink', name: 'TronLink', img: wallet1 },
 	{ id: 'tokenpocket', name: 'TokenPocket', img: wallet2 },
 	{ id: 'imtoken', name: 'imToken', img: wallet3 },
 	{ id: 'bitkeep', name: 'BitKeep', img: wallet4 },
-	{ id: 'okx', name: 'OKX Wallet', badge: 'OKX', color: '#1A1A1A' },
-	{ id: 'walletconnect', name: 'WalletConnect', badge: 'WC', color: '#3B99FC' }
+	{ id: 'okx', name: 'OKX Wallet', badge: 'OKX', color: '#1A1A1A' }
+	// { id: 'walletconnect', name: 'WalletConnect', badge: 'WC', color: '#3B99FC' }
 ]
 
 const handleSelect = (walletId) => {
