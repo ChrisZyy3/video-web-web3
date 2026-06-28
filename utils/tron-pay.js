@@ -357,83 +357,18 @@ export async function checkOnChainMembership({ minUsdt = 1, walletId = '' } = {}
   }
 }
 
-// 向指定钱包请求账户授权（精确到单个钱包，避免多钱包同时弹窗）
-function requestTronAccountsFor(walletId) {
-  if (walletId === 'okx') return window.okxwallet?.tronLink?.request?.({ method: 'tron_requestAccounts' })
-  if (walletId === 'bitkeep') return window.bitkeep?.request?.({ method: 'tron_requestAccounts' })
-  // tronlink / tokenpocket / 默认：标准 tronLink 注入入口
-  return window.tronLink?.request?.({ method: 'tron_requestAccounts' })
-}
-
-// 按用户在选择弹窗中选定的钱包验证会员：注入式只连该钱包；walletconnect 走扫码
+// 按用户在选择弹窗中选定的钱包验证会员：统一走官方 @tronweb3 adapter
+// 注入式（TronLink/OKX/TokenPocket）弹扩展授权，WalletConnect 弹二维码；连接拿地址后读链上 balances
+// 动态 import：adapter 相关库（含 WalletConnect）只在用户真正验证时加载，不拖累首屏/其它页面
 export async function verifyMembershipByWallet(walletId = '', { minUsdt = 1 } = {}) {
   if (typeof window === 'undefined') return false
   try {
-    // WalletConnect：扫码/跳转连接（手机裸浏览器或桌面想用手机钱包）
-    if (walletId === 'walletconnect') {
-      const { connectViaWalletConnect, readDepositBalanceRaw } = await import('@/utils/wallet-connect')
-      const addr = await connectViaWalletConnect()
-      if (!addr) return false
-      const paid = (await readDepositBalanceRaw(addr)) >= BigInt(Math.round(minUsdt * 1e6))
-      if (paid) setLookMember(true)
-      return paid
-    }
-
-    // 注入式：仅向所选钱包请求授权，再轮询其注入的地址
-    try { await requestTronAccountsFor(walletId) } catch (e) { /* 用户拒绝/未安装，下方按拿不到地址处理 */ }
-    let tronWeb = null
-    for (let i = 0; i < 12; i++) {
-      tronWeb = getTronWeb(walletId)
-      if (tronWeb?.defaultAddress?.base58) break
-      await new Promise((resolve) => setTimeout(resolve, 250))
-    }
-    const address = tronWeb?.defaultAddress?.base58
-    if (!address) return false
-    return await readDepositMembership(tronWeb, address, minUsdt)
-  } catch (error) {
-    console.warn('指定钱包会员校验失败', error)
-    return false
-  }
-}
-
-// 主动连接版会员校验：主动向桌面扩展请求账户授权（TronLink / OKX / BitKeep），拿到地址后读 balances
-// 用于裸浏览器/未连接场景，由用户点击「连接钱包验证」触发
-export async function checkMembershipWithConnect({ minUsdt = 1 } = {}) {
-  if (typeof window === 'undefined') return false
-  try {
-    // 主动请求各扩展账户授权（任一存在即弹出对应钱包的连接确认）
-    const requesters = [
-      () => window.tronLink?.request?.({ method: 'tron_requestAccounts' }),
-      () => window.okxwallet?.tronLink?.request?.({ method: 'tron_requestAccounts' }),
-      () => window.bitkeep?.request?.({ method: 'tron_requestAccounts' })
-    ]
-    for (const req of requesters) {
-      try { await req() } catch (e) { /* 单个钱包不存在/拒绝时忽略，尝试下一个 */ }
-    }
-
-    // 轮询等待地址注入（扩展授权后 tronWeb.defaultAddress 才就绪）
-    let tronWeb = null
-    for (let i = 0; i < 12; i++) {
-      tronWeb = getTronWeb()
-      if (tronWeb?.defaultAddress?.base58) break
-      await new Promise((resolve) => setTimeout(resolve, 250))
-    }
-    const address = tronWeb?.defaultAddress?.base58
-    if (address) {
-      return await readDepositMembership(tronWeb, address, minUsdt)
-    }
-
-    // 注入拿不到地址（手机裸浏览器无扩展/无内置注入）→ 回退 WalletConnect
-    // 动态 import：WalletConnect 相关库只在走到这条路时才加载，不拖累首屏/其它页面
-    const { connectViaWalletConnect, readDepositBalanceRaw } = await import('@/utils/wallet-connect')
-    const wcAddress = await connectViaWalletConnect()
-    if (!wcAddress) return false
-    const raw = await readDepositBalanceRaw(wcAddress)
-    const paid = raw >= BigInt(Math.round(minUsdt * 1e6))
-    if (paid) setLookMember(true)
+    const { connectAndReadMembership } = await import('@/utils/wallet-adapters')
+    const paid = await connectAndReadMembership(walletId, minUsdt)
+    if (paid) setLookMember(true) // 命中即缓存到本地，二者其一为真即会员
     return paid
   } catch (error) {
-    console.warn('主动连接会员校验失败', error)
+    console.warn('指定钱包会员校验失败', error)
     return false
   }
 }

@@ -102,6 +102,7 @@ export default {
     maybeLater: 'Maybe Later',
     verifyMember: 'Already a member? Connect wallet',
     selectWalletTitle: 'Select wallet to verify',
+    walletNotDetected: 'Not installed',
     verifying: 'Verifying...',
     verifySuccess: 'Verified, unlocked',
     verifyFailed: 'No payment record found'

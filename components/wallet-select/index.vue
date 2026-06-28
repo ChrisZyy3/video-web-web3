@@ -3,18 +3,24 @@
 		<view class="ws-panel" @click.stop>
 			<text class="ws-title">{{ t('memberIntro.selectWalletTitle') }}</text>
 
-			<view
-				v-for="w in wallets"
-				:key="w.id"
-				class="ws-item"
-				@click="handleSelect(w.id)"
-			>
-				<view class="ws-badge" :style="{ background: w.color }">
-					<text class="ws-badge-text">{{ w.short }}</text>
-				</view>
-				<text class="ws-name">{{ w.name }}</text>
-				<text class="ws-arrow">›</text>
+			<view v-if="loading" class="ws-loading">
+				<text class="ws-loading-text">{{ t('memberIntro.verifying') }}</text>
 			</view>
+
+			<template v-else>
+				<view
+					v-for="w in wallets"
+					:key="w.id"
+					class="ws-item"
+					@click="handleSelect(w)"
+				>
+					<image v-if="w.icon" class="ws-icon" :src="w.icon" mode="aspectFit" />
+					<view v-else class="ws-icon ws-icon--ph" />
+					<text class="ws-name">{{ w.name }}</text>
+					<text v-if="!w.installed && w.id !== 'WalletConnect'" class="ws-tag">{{ t('memberIntro.walletNotDetected') }}</text>
+					<text class="ws-arrow">›</text>
+				</view>
+			</template>
 
 			<view class="ws-cancel" @click="handleClose">
 				<text class="ws-cancel-text">{{ t('memberIntro.maybeLater') }}</text>
@@ -24,26 +30,45 @@
 </template>
 
 <script setup>
+import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-defineProps({
+const props = defineProps({
 	visible: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['update:visible', 'select'])
 
-// 可选钱包：注入式(桌面扩展/钱包内置浏览器) + WalletConnect(手机扫码)
-const wallets = [
-	{ id: 'tronlink', name: 'TronLink', short: 'T', color: '#1A6DF0' },
-	{ id: 'okx', name: 'OKX Wallet', short: 'O', color: '#1A1A1A' },
-	{ id: 'tokenpocket', name: 'TokenPocket', short: 'TP', color: '#2980FE' },
-	{ id: 'walletconnect', name: 'WalletConnect', short: 'WC', color: '#3B99FC' }
-]
+const wallets = ref([])
+const loading = ref(false)
 
-const handleSelect = (walletId) => {
-	emit('select', walletId)
+// 弹窗首次打开时，动态加载官方 adapter 列表（真实 logo + 是否检测到已安装）
+// 动态 import 让 adapter/WalletConnect 重依赖只在需要时加载，不进首屏包
+watch(
+	() => props.visible,
+	async (v) => {
+		if (!v || wallets.value.length) return
+		loading.value = true
+		try {
+			const { listWallets } = await import('@/utils/wallet-adapters')
+			wallets.value = listWallets()
+		} catch (e) {
+			console.warn('加载钱包列表失败', e)
+		} finally {
+			loading.value = false
+		}
+	}
+)
+
+const handleSelect = (w) => {
+	// 未安装的注入钱包：引导去下载；其余（含 WalletConnect）直接发起连接
+	if (!w.installed && w.id !== 'WalletConnect' && w.downloadUrl) {
+		window.open(w.downloadUrl, '_blank')
+		return
+	}
+	emit('select', w.id)
 }
 
 const handleClose = () => {
@@ -84,6 +109,18 @@ const handleClose = () => {
 	margin-bottom: 28rpx;
 }
 
+.ws-loading {
+	padding: 48rpx 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.ws-loading-text {
+	font-size: 26rpx;
+	color: #8B867C;
+}
+
 .ws-item {
 	display: flex;
 	flex-direction: row;
@@ -98,20 +135,16 @@ const handleClose = () => {
 	margin-top: 16rpx;
 }
 
-.ws-badge {
+.ws-icon {
 	width: 64rpx;
 	height: 64rpx;
 	border-radius: 16rpx;
-	display: flex;
-	align-items: center;
-	justify-content: center;
 	flex-shrink: 0;
+	background: #fff;
 }
 
-.ws-badge-text {
-	font-size: 26rpx;
-	font-weight: 700;
-	color: #fff;
+.ws-icon--ph {
+	background: rgba(191, 149, 102, 0.2);
 }
 
 .ws-name {
@@ -120,6 +153,15 @@ const handleClose = () => {
 	font-size: 30rpx;
 	color: #F0E6D8;
 	font-weight: 600;
+}
+
+.ws-tag {
+	margin-right: 12rpx;
+	font-size: 20rpx;
+	color: #8B867C;
+	padding: 2rpx 12rpx;
+	border-radius: 8rpx;
+	background: rgba(139, 134, 124, 0.15);
 }
 
 .ws-arrow {

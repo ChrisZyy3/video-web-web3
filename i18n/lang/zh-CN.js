@@ -102,6 +102,7 @@ export default {
     maybeLater: '稍后再说',
     verifyMember: '已是会员？连接钱包验证',
     selectWalletTitle: '选择钱包验证会员',
+    walletNotDetected: '未安装',
     verifying: '验证中...',
     verifySuccess: '验证成功，已解锁',
     verifyFailed: '未检测到付费记录'
