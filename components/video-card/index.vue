@@ -41,7 +41,9 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+// 引入 Vue 响应式与生命周期 API，新增 watch 以监听数据源变化
+// Import Vue reactivity and lifecycle APIs, adding watch to listen for source changes
+import { ref, computed, onMounted, watch } from 'vue'
 import { useVideoFirstFramePoster } from '@/utils/use-video-poster'
 import { applyNativeVideoPoster } from '@/utils/video-poster'
 
@@ -117,12 +119,24 @@ function svgIcon(paths, color, fill = 'none') {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
+// 尝试开始自动播放视频
+// Attempt to autoplay the video
 const tryPlay = () => {
-  if (!props.autoplay || hasPlayed.value) return
-  uni.createVideoContext(props.videoId).play()
-  hasPlayed.value = true
+  // 如果不允许自动播放、已经播放过、或者视频播放源（video src）为空，则直接拦截返回以避免报错
+  // If autoplay is disabled, already played, or the video source is empty, return early to prevent errors
+  if (!props.autoplay || hasPlayed.value || !props.video) return
+  
+  // 安全获取视频元素上下文并调用播放接口
+  // Safely get video context and trigger playback
+  const ctx = uni.createVideoContext(props.videoId)
+  if (ctx) {
+    ctx.play()
+    hasPlayed.value = true
+  }
 }
 
+// 当视频加载到足够可播放的帧数据时，触发尝试播放
+// Trigger attempt play when enough frames are loaded (onCanPlay event)
 const onCanPlay = () => {
   tryPlay()
 }
@@ -135,7 +149,21 @@ const onError = (e) => {
   console.error('列表视频加载失败', props.videoId, e.detail)
 }
 
+// 监听视频源变动：若由空（API 尚未返回）变为有效地址，重置标记并触发播放
+// Watch for video source changes: reset hasPlayed and try play if source becomes valid
+watch(
+  () => props.video,
+  (newVal) => {
+    if (newVal) {
+      hasPlayed.value = false
+      setTimeout(tryPlay, 200)
+    }
+  }
+)
+
 onMounted(() => {
+  // 组件加载挂载 300ms 后，安全触发播放尝试
+  // Safely trigger playback attempt 300ms after mounting
   setTimeout(tryPlay, 300)
 })
 </script>
