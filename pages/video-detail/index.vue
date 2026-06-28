@@ -143,11 +143,11 @@ const handleVerifyMember = () => {
 
 // 用户在选择弹窗里选定钱包：连接该钱包读取链上 balances，达标则解锁并放行
 const handleWalletSelected = async (walletId) => {
+	// 关闭选择弹窗，不加全屏 loading 蒙层（会盖住 WalletConnect 的二维码弹窗）
+	// 由钱包自身 UI（扩展授权 / WC 二维码）接管交互
 	showWalletSelect.value = false
-	uni.showLoading({ title: t('memberIntro.verifying'), mask: true })
 	try {
 		const member = await verifyMembershipByWallet(walletId)
-		uni.hideLoading()
 		if (member) {
 			showMemberIntro.value = false
 			uni.showToast({ title: t('memberIntro.verifySuccess'), icon: 'success' })
@@ -157,8 +157,8 @@ const handleWalletSelected = async (walletId) => {
 			uni.showToast({ title: t('memberIntro.verifyFailed'), icon: 'none' })
 		}
 	} catch (error) {
-		uni.hideLoading()
-		uni.showToast({ title: t('memberIntro.verifyFailed'), icon: 'none' })
+		console.warn('会员验证失败', error)
+		uni.showToast({ title: error?.message || t('memberIntro.verifyFailed'), icon: 'none', duration: 3000 })
 	}
 }
 
