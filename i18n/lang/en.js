@@ -103,6 +103,8 @@ export default {
     verifyMember: 'Already a member? Connect wallet',
     selectWalletTitle: 'Select wallet to verify',
     walletNotDetected: 'Not installed',
+    walletLoading: 'Loading wallets...',
+    walletLoadFailed: 'Load failed, tap to retry',
     verifying: 'Verifying...',
     verifySuccess: 'Verified, unlocked',
     verifyFailed: 'No payment record found'

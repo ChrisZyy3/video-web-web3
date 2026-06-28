@@ -103,6 +103,8 @@ export default {
     verifyMember: '已是会员？连接钱包验证',
     selectWalletTitle: '选择钱包验证会员',
     walletNotDetected: '未安装',
+    walletLoading: '加载钱包列表...',
+    walletLoadFailed: '加载失败，点击重试',
     verifying: '验证中...',
     verifySuccess: '验证成功，已解锁',
     verifyFailed: '未检测到付费记录'

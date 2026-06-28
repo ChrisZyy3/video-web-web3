@@ -4,7 +4,11 @@
 			<text class="ws-title">{{ t('memberIntro.selectWalletTitle') }}</text>
 
 			<view v-if="loading" class="ws-loading">
-				<text class="ws-loading-text">{{ t('memberIntro.verifying') }}</text>
+				<text class="ws-loading-text">{{ t('memberIntro.walletLoading') }}</text>
+			</view>
+
+			<view v-else-if="loadError" class="ws-loading" @click="loadWallets">
+				<text class="ws-loading-text">{{ t('memberIntro.walletLoadFailed') }}</text>
 			</view>
 
 			<template v-else>
@@ -43,22 +47,30 @@ const emit = defineEmits(['update:visible', 'select'])
 
 const wallets = ref([])
 const loading = ref(false)
+const loadError = ref(false)
 
-// 弹窗首次打开时，动态加载官方 adapter 列表（真实 logo + 是否检测到已安装）
-// 动态 import 让 adapter/WalletConnect 重依赖只在需要时加载，不进首屏包
+// 加载官方 adapter 列表（真实 logo + 是否检测到已安装）
+// 动态 import 让 adapter 重依赖只在需要时加载，不进首屏包；加超时兜底，避免无限卡在加载态
+const loadWallets = async () => {
+	loading.value = true
+	loadError.value = false
+	try {
+		const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('wallet list timeout')), 10000))
+		const { listWallets } = await Promise.race([import('@/utils/wallet-adapters'), timeout])
+		wallets.value = listWallets()
+	} catch (e) {
+		console.warn('加载钱包列表失败', e)
+		loadError.value = true
+	} finally {
+		loading.value = false
+	}
+}
+
+// 弹窗首次打开时加载
 watch(
 	() => props.visible,
-	async (v) => {
-		if (!v || wallets.value.length) return
-		loading.value = true
-		try {
-			const { listWallets } = await import('@/utils/wallet-adapters')
-			wallets.value = listWallets()
-		} catch (e) {
-			console.warn('加载钱包列表失败', e)
-		} finally {
-			loading.value = false
-		}
+	(v) => {
+		if (v && !wallets.value.length) loadWallets()
 	}
 )
 

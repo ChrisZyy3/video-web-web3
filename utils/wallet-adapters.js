@@ -2,22 +2,36 @@ import { TronWeb } from 'tronweb'
 import { TronLinkAdapter } from '@tronweb3/tronwallet-adapter-tronlink'
 import { OkxWalletAdapter } from '@tronweb3/tronwallet-adapter-okxwallet'
 import { TokenPocketAdapter } from '@tronweb3/tronwallet-adapter-tokenpocket'
-import { WalletConnectAdapter } from '@tronweb3/tronwallet-adapter-walletconnect'
 import { tronRpc, wcProjectId } from '@/env'
 import acceptorAbi from '@/utils/UsdtAccepter.json'
 
 // 收款合约地址（与 tron-pay.js 一致；此处独立声明避免循环依赖）
 const DEPOSIT_CONTRACT = 'TR1rsFStNdW1QS77DL9gMimHLSRbS1M57z'
 
-// 官方钱包 adapter 列表（单例，懒构建）
-let adapters = null
-function buildAdapters() {
-  if (adapters) return adapters
-  adapters = [
-    new TronLinkAdapter(),
-    new OkxWalletAdapter(),
-    new TokenPocketAdapter(),
-    new WalletConnectAdapter({
+const WALLETCONNECT_ID = 'WalletConnect'
+
+// 注入式 adapter（TronLink/OKX/TokenPocket）：逐个 try/catch 构建，单个失败不影响其它
+// 注意：不在列表阶段构造 WalletConnectAdapter（其初始化可能拖慢/阻塞），仅在选中 WC 时懒构造
+let injectedAdapters = null
+function getInjectedAdapters() {
+  if (injectedAdapters) return injectedAdapters
+  injectedAdapters = []
+  for (const Ctor of [TronLinkAdapter, OkxWalletAdapter, TokenPocketAdapter]) {
+    try {
+      injectedAdapters.push(new Ctor())
+    } catch (e) {
+      console.warn('钱包 adapter 构建失败', e)
+    }
+  }
+  return injectedAdapters
+}
+
+// WalletConnect adapter 懒构造（仅在用户选中 WalletConnect 时才创建）
+let wcAdapter = null
+async function getWcAdapter() {
+  if (!wcAdapter) {
+    const { WalletConnectAdapter } = await import('@tronweb3/tronwallet-adapter-walletconnect')
+    wcAdapter = new WalletConnectAdapter({
       network: 'Mainnet',
       options: {
         projectId: wcProjectId,
@@ -29,20 +43,27 @@ function buildAdapters() {
         }
       }
     })
-  ]
-  return adapters
+  }
+  return wcAdapter
 }
 
-// 供选择弹窗渲染：真实名称、logo、是否检测到（已安装）
-// WalletConnect 不依赖注入，恒为可用
+// 供选择弹窗渲染：注入钱包真实名称/logo/是否检测到 + 末尾固定一项 WalletConnect（恒可用，扫码）
 export function listWallets() {
-  return buildAdapters().map((a) => ({
+  const list = getInjectedAdapters().map((a) => ({
     id: a.name,
     name: a.name,
     icon: a.icon || '',
-    installed: a.name === 'WalletConnect' ? true : a.readyState === 'Found',
+    installed: a.readyState === 'Found',
     downloadUrl: a.url || ''
   }))
+  list.push({
+    id: WALLETCONNECT_ID,
+    name: 'WalletConnect',
+    icon: '',
+    installed: true,
+    downloadUrl: ''
+  })
+  return list
 }
 
 // 独立只读 TronWeb 实例：连公共节点读链，不依赖钱包注入
@@ -59,7 +80,9 @@ function getReader() {
 
 // 连接指定钱包并读取链上 balances，判断是否达到会员门槛
 export async function connectAndReadMembership(walletId, minUsdt = 1) {
-  const adapter = buildAdapters().find((a) => a.name === walletId)
+  const adapter = walletId === WALLETCONNECT_ID
+    ? await getWcAdapter()
+    : getInjectedAdapters().find((a) => a.name === walletId)
   if (!adapter) return false
 
   if (!adapter.address) {
