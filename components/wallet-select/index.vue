@@ -58,8 +58,18 @@ const loadWallets = async () => {
 		const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('wallet list timeout')), 20000))
 		const { listWallets } = await Promise.race([import('@/utils/wallet-adapters'), timeout])
 		wallets.value = listWallets()
+		try { sessionStorage.removeItem('ws-chunk-reloaded') } catch (e2) {}
 	} catch (e) {
 		console.warn('加载钱包列表失败', e)
+		// 旧部署残留 / 缓存的 chunk hash 失效（Failed to fetch dynamically imported module）→ 自动刷新一次拉取最新资源
+		const isStaleChunk = /dynamically imported module|Importing a module script failed|error loading dynamically imported/i.test(e?.message || '')
+		let reloaded = false
+		try { reloaded = sessionStorage.getItem('ws-chunk-reloaded') === '1' } catch (e2) {}
+		if (isStaleChunk && !reloaded && typeof location !== 'undefined') {
+			try { sessionStorage.setItem('ws-chunk-reloaded', '1') } catch (e2) {}
+			location.reload()
+			return
+		}
 		loadError.value = true
 	} finally {
 		loading.value = false
