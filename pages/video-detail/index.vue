@@ -88,7 +88,7 @@ import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { isFavorite, toggleFavorite } from '@/utils/favorites'
 import { getLookVideo, setLookVideo, getPlayCount, incrementPlayCount } from '@/utils/look-video'
 import { getLookMember, setLookMember } from '@/utils/look-member'
-import { checkOnChainMembership, verifyMembershipByWallet, getConnectedWalletAddress } from '@/utils/tron-pay'
+import { refreshMembershipByStoredAddress, verifyMembershipByWallet, getConnectedWalletAddress } from '@/utils/tron-pay'
 import memberSheet from '@/components/member-sheet/index'
 import memberIntro from '@/components/member-intro/index'
 import walletSelect from '@/components/wallet-select/index'
@@ -323,9 +323,9 @@ const onVideoPlay = async () => {
 	// Security check to pause playback if limit is exceeded (e.g. native autoplay/native controls play)
 	// 播放时的安全防护逻辑：如果超出了免费观看限制，则暂停播放并显示会员引导弹窗
 	if (isLimitExceeded()) {
-		// 兜底：超免费额度时再查一次链上 balances>=1 USDT，命中则视为会员放行（命中会写入本地缓存）
+		// 兜底：超免费额度时凭已连接地址再读一次链上 balances>=1 USDT，命中则视为会员放行
 		getCtx().pause()
-		const member = await checkOnChainMembership()
+		const member = await refreshMembershipByStoredAddress()
 		if (!member) {
 			showMemberIntro.value = true
 			return
@@ -353,8 +353,8 @@ const handleTogglePlay = async () => {
 	// Block play and re-trigger member intro popup if the limit is exceeded
 	// 如果超出了免费观看限制，阻止播放并重新弹出会员引导弹窗
 	if (isLimitExceeded()) {
-		// 兜底：超免费额度时再查一次链上 balances>=1 USDT，命中则视为会员放行（命中会写入本地缓存）
-		const member = await checkOnChainMembership()
+		// 兜底：超免费额度时凭已连接地址再读一次链上 balances>=1 USDT，命中则视为会员放行
+		const member = await refreshMembershipByStoredAddress()
 		if (!member) {
 			showMemberIntro.value = true
 			return
@@ -518,11 +518,9 @@ onLoad((options) => {
 	if (options?.id) {
 		loadDetail(options.id)
 	}
-	// 进入详情页即静默校验链上会员（钱包内置浏览器场景）：链上 balances>=1 USDT 会写入本地会员缓存，
-	// 这样后续 isLimitExceeded 走本地判断即可放行，已付费用户无需再弹窗
-	if (!getLookMember()) {
-		checkOnChainMembership()
-	}
+	// 进入详情页即凭已连接地址静默重判会员（与全局 App 启动同一套）：链上 balances>=1 USDT 写入本地缓存，
+	// 后续 isLimitExceeded 走本地判断即可放行，已付费用户无需再弹窗
+	refreshMembershipByStoredAddress()
 })
 
 onMounted(() => {
