@@ -50,30 +50,31 @@
 						<image class="logout-icon" :src="icons.logout" mode="aspectFit" />
 					</view>-->
 				</view>
-				<view class="member-tag">
-					<view class="member-dot" />
-					<text class="member-tag-text">{{ t('mine.nonMember') }}</text>
+				<view class="member-tag" :class="{ 'member-tag--vip': isMember }">
+					<view class="member-dot" :class="{ 'member-dot--vip': isMember }" />
+					<text class="member-tag-text" :class="{ 'member-tag-text--vip': isMember }">
+						{{ isMember ? t('mine.memberActive') : t('mine.nonMember') }}
+					</text>
 				</view>
 			</view>
 
 			<view class="action-btns">
-				<view class="btn-member" @click="handleMember">
+				<view v-if="!isMember" class="btn-member" @click="handleMember">
 					<text class="btn-member-text">{{ t('mine.becomeMember') }}</text>
 				</view>
-				<!-- <view class="btn-outline" @click="handleLogin">
-					<text class="btn-outline-text">Log In</text>
-				</view>
-				<view class="btn-outline" @click="handleChangePwd">
-					<text class="btn-outline-text">Change Password</text>
-				</view> -->
 				<view class="btn-outline" @click="handleOrder">
 					<text class="btn-outline-text">{{ t('mine.orderDetails') }}</text>
 				</view>
 			</view>
 
 			<view class="action-btns">
-				<view class="btn-outline" @click="handleConnectWallet">
+				<view v-if="!connectedAddress" class="btn-outline" @click="handleConnectWallet">
 					<text class="btn-outline-text">{{ t('mine.connectWallet') }}</text>
+				</view>
+				<view v-else class="wallet-connected">
+					<view class="wallet-connected-dot" />
+					<text class="wallet-connected-text">{{ t('mine.walletConnected') }}</text>
+					<text class="wallet-connected-addr">{{ connectedAddressShort }}</text>
 				</view>
 			</view>
 
@@ -113,8 +114,10 @@ import { useI18n } from 'vue-i18n'
 import tabbar from '@/components/tabbar/index'
 import memberSheet from '@/components/member-sheet/index'
 import walletSelect from '@/components/wallet-select/index'
-import { verifyMembershipByWallet } from '@/utils/tron-pay'
+import { verifyMembershipByWallet, getConnectedWalletAddress, formatAddressShort } from '@/utils/tron-pay'
+import { getLookMember } from '@/utils/look-member'
 import { getMobilePageLayout, getTabbarInsetPx, bindViewportResize } from '@/utils/h5-compat'
+import { onShow } from '@dcloudio/uni-app'
 
 const { t, locale } = useI18n()
 
@@ -129,6 +132,17 @@ const scrollHeight = ref(0)
 const bottomSpaceHeight = ref(60)
 const showMemberSheet = ref(false)
 const showWalletSelect = ref(false)
+
+// 会员状态与已连接钱包地址（本地）
+const isMember = ref(false)
+const connectedAddress = ref('')
+const connectedAddressShort = computed(() => formatAddressShort(connectedAddress.value))
+
+// 刷新会员/连接状态
+const refreshStatus = () => {
+	isMember.value = !!getLookMember()
+	connectedAddress.value = getConnectedWalletAddress()
+}
 
 const currentLangLabel = computed(() =>
 	locale.value === 'zh-CN' ? t('mine.langZh') : t('mine.langEn')
@@ -188,6 +202,7 @@ const handleWalletSelected = async (walletId) => {
 	showWalletSelect.value = false
 	try {
 		const member = await verifyMembershipByWallet(walletId)
+		refreshStatus() // 连接后刷新会员/已连接状态
 		uni.showToast({
 			title: member ? t('memberIntro.verifySuccess') : t('memberIntro.verifyFailed'),
 			icon: member ? 'success' : 'none',
@@ -243,9 +258,14 @@ const handleCopyDomain = () => {
 
 onMounted(() => {
 	calcLayout()
+	refreshStatus()
 	// #ifdef H5
 	unbindViewport = bindViewportResize(calcLayout)
 	// #endif
+})
+
+onShow(() => {
+	refreshStatus()
 })
 
 onUnmounted(() => {
@@ -424,6 +444,58 @@ onUnmounted(() => {
 	font-size: 26rpx;
 	color: #8B867C;
 	letter-spacing: 1rpx;
+}
+
+/* 会员激活态：金色高亮 */
+.member-tag--vip {
+	background: rgba(191, 149, 102, 0.12);
+}
+
+.member-dot--vip {
+	background: #BF9566;
+}
+
+.member-tag-text--vip {
+	color: #D4B896;
+	font-weight: 600;
+}
+
+/* 已连接钱包展示（替代连接按钮） */
+.wallet-connected {
+	flex: 1;
+	height: 68rpx;
+	border-radius: 34rpx;
+	border: 1rpx solid rgba(40, 173, 123, 0.5);
+	background: rgba(40, 173, 123, 0.08);
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	padding: 0 20rpx;
+	box-sizing: border-box;
+}
+
+.wallet-connected-dot {
+	width: 12rpx;
+	height: 12rpx;
+	border-radius: 50%;
+	background: #28AD7B;
+	margin-right: 12rpx;
+	flex-shrink: 0;
+}
+
+.wallet-connected-text {
+	font-size: 22rpx;
+	color: #28AD7B;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.wallet-connected-addr {
+	font-size: 22rpx;
+	color: #8B867C;
+	margin-left: 12rpx;
+	white-space: nowrap;
 }
 
 .action-btns {

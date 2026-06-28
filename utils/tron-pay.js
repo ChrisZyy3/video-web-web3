@@ -322,6 +322,14 @@ export function redirectAfterPaymentSuccess(returnUrl) {
   }
 }
 
+// 记录/读取当前已连接钱包地址（用于 profile 展示「已连接钱包」状态）
+export function setConnectedWalletAddress(address) {
+  if (address) uni.setStorageSync('walletAddress', address)
+}
+export function getConnectedWalletAddress() {
+  return uni.getStorageSync('walletAddress') || ''
+}
+
 // 清除待支付订单缓存，并同步标记本地已支付/已购买状态 / Clear pending order cache and mark the local member status as paid
 export function markOrderPaymentCompleted() {
   // 移除本地待支付订单缓存 / Remove pending order from local storage
@@ -388,6 +396,7 @@ export async function verifyMembershipByWallet(walletId = '', { minUsdt = 1 } = 
     }
     const address = tronWeb?.defaultAddress?.base58
     if (!address) return false
+    setConnectedWalletAddress(address) // 记录已连接地址，供 profile 展示
     return await readDepositMembership(tronWeb, address, minUsdt) // 命中内部已写本地缓存
   } catch (error) {
     console.warn('指定钱包会员校验失败', error)

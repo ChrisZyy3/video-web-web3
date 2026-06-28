@@ -137,6 +137,8 @@ export default {
     nonMember: 'Non-member',
     becomeMember: 'Become a Member',
     connectWallet: 'Connect Wallet',
+    memberActive: 'Member',
+    walletConnected: 'Wallet Connected',
     logIn: 'Log In',
     changePassword: 'Change Password',
     orderDetails: 'Order Details',
