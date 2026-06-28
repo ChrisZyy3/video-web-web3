@@ -139,6 +139,8 @@ export default {
     connectWallet: 'Connect Wallet',
     memberActive: 'Member',
     walletConnected: 'Wallet Connected',
+    disconnect: 'Disconnect',
+    disconnected: 'Wallet disconnected',
     logIn: 'Log In',
     changePassword: 'Change Password',
     orderDetails: 'Order Details',

@@ -71,11 +71,16 @@
 				<view v-if="!connectedAddress" class="btn-outline" @click="handleConnectWallet">
 					<text class="btn-outline-text">{{ t('mine.connectWallet') }}</text>
 				</view>
-				<view v-else class="wallet-connected">
-					<view class="wallet-connected-dot" />
-					<text class="wallet-connected-text">{{ t('mine.walletConnected') }}</text>
-					<text class="wallet-connected-addr">{{ connectedAddressShort }}</text>
-				</view>
+				<template v-else>
+					<view class="wallet-connected">
+						<view class="wallet-connected-dot" />
+						<text class="wallet-connected-text">{{ t('mine.walletConnected') }}</text>
+						<text class="wallet-connected-addr">{{ connectedAddressShort }}</text>
+					</view>
+					<view class="btn-disconnect" @click="handleDisconnect">
+						<text class="btn-disconnect-text">{{ t('mine.disconnect') }}</text>
+					</view>
+				</template>
 			</view>
 
 			<!-- <view class="qrcode-section">
@@ -114,7 +119,7 @@ import { useI18n } from 'vue-i18n'
 import tabbar from '@/components/tabbar/index'
 import memberSheet from '@/components/member-sheet/index'
 import walletSelect from '@/components/wallet-select/index'
-import { verifyMembershipByWallet, getConnectedWalletAddress, formatAddressShort } from '@/utils/tron-pay'
+import { verifyMembershipByWallet, getConnectedWalletAddress, formatAddressShort, disconnectWallet } from '@/utils/tron-pay'
 import { getLookMember } from '@/utils/look-member'
 import { getMobilePageLayout, getTabbarInsetPx, bindViewportResize } from '@/utils/h5-compat'
 import { onShow } from '@dcloudio/uni-app'
@@ -195,6 +200,13 @@ const handleMember = () => {
 // 点击「连接钱包」：弹出钱包选择
 const handleConnectWallet = () => {
 	showWalletSelect.value = true
+}
+
+// 断开钱包连接（会员状态保留，重连会重新读链恢复）
+const handleDisconnect = () => {
+	disconnectWallet()
+	refreshStatus()
+	uni.showToast({ title: t('mine.disconnected'), icon: 'none' })
 }
 
 // 选定钱包后连接并校验会员（链上 balances）
@@ -495,6 +507,25 @@ onUnmounted(() => {
 	font-size: 22rpx;
 	color: #8B867C;
 	margin-left: 12rpx;
+	white-space: nowrap;
+}
+
+.btn-disconnect {
+	flex-shrink: 0;
+	margin-left: 12rpx;
+	height: 68rpx;
+	padding: 0 28rpx;
+	border-radius: 34rpx;
+	border: 1rpx solid rgba(207, 102, 121, 0.6);
+	background: rgba(207, 102, 121, 0.08);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.btn-disconnect-text {
+	font-size: 22rpx;
+	color: #CF6679;
 	white-space: nowrap;
 }
 

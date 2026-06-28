@@ -139,6 +139,8 @@ export default {
     connectWallet: '连接钱包',
     memberActive: '会员',
     walletConnected: '已连接钱包',
+    disconnect: '断开',
+    disconnected: '已断开钱包连接',
     logIn: '登录',
     changePassword: '修改密码',
     orderDetails: '订单详情',

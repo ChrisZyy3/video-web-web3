@@ -330,6 +330,11 @@ export function getConnectedWalletAddress() {
   return uni.getStorageSync('walletAddress') || ''
 }
 
+// 断开钱包连接：仅清除已连接地址；会员状态（已支付）保留，重连会重新读链恢复
+export function disconnectWallet() {
+  uni.removeStorageSync('walletAddress')
+}
+
 // 全局会员刷新：已连接钱包时，凭已存地址静默读链上 balances 重判会员（不唤起钱包）
 // 已是本地会员则直接跳过；命中则写本地缓存。供 App 启动 / 进页面调用，实现跨页自动判定
 export async function refreshMembershipByStoredAddress(minUsdt = 1) {
