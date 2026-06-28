@@ -47,8 +47,10 @@ const wallets = [
 	{ id: 'tokenpocket', name: 'TokenPocket', img: wallet2 },
 	{ id: 'imtoken', name: 'imToken', img: wallet3 },
 	{ id: 'bitkeep', name: 'BitKeep', img: wallet4 },
-	{ id: 'okx', name: 'OKX Wallet', badge: 'OKX', color: '#1A1A1A' },
-	{ id: 'binance', name: 'Binance Wallet', badge: 'BNB', color: '#F0B90B', textColor: '#1A1A1A' }
+	{ id: 'okx', name: 'OKX Wallet', badge: 'OKX', color: '#1A1A1A' }
+	// 暂时注释币安钱包，视需求随时可重新启用
+	// Temporarily commented out Binance Wallet, can be re-enabled as needed
+	// { id: 'binance', name: 'Binance Wallet', badge: 'BNB', color: '#F0B90B', textColor: '#1A1A1A' }
 	// { id: 'walletconnect', name: 'WalletConnect', badge: 'WC', color: '#3B99FC' }
 ]
 

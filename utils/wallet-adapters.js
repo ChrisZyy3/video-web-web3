@@ -38,17 +38,34 @@ async function getReader() {
   return reader
 }
 
-// 按已知地址只读读 balances（不唤起任何钱包）：用于已连接后跨页静默重判会员
+// 按已知地址只读读 balances（不唤起任何钱包）：用于已连接后跨页静默重判 VIP 身份
 export async function readDepositBalanceByAddress(address, minUsdt = 1) {
   if (!address) return false
   const tronWeb = await getReader()
   const contract = await tronWeb.contract(acceptorAbi, DEPOSIT_CONTRACT)
   const raw = await contract.balances(address).call()
   const value = BigInt(raw?._hex ?? raw?.toString?.() ?? '0')
-  return value >= BigInt(Math.round(minUsdt * 1e6))
+  
+  // 计算可读的 USDT 余额（除以精度 1e6）
+  // Calculate readable USDT balance (divided by decimals 1e6)
+  const usdtBalance = Number(value) / 1e6
+  
+  // 判断已存金额是否满足 VIP 门槛
+  // Determine if deposited amount meets the VIP threshold
+  const isVip = value >= BigInt(Math.round(minUsdt * 1e6))
+  
+  // 打印跨页静默刷新时的 VIP 判定日志
+  // Print detailed logs of the silent VIP background verification
+  console.log(`[Stored Address VIP Refresh Log / 已连接地址静默刷新 VIP 日志]`)
+  console.log(`- Stored Address / 已存钱包地址: ${address}`)
+  console.log(`- On-chain Deposit / 链上已存金额: ${usdtBalance} USDT (Raw: ${value.toString()})`)
+  console.log(`- Threshold Required / 准入门槛: ${minUsdt} USDT`)
+  console.log(`- Is VIP (Threshold Met) / 是否为 VIP (已达标): ${isVip}`)
+
+  return isVip
 }
 
-// WalletConnect：连接拿地址（扫码/跳转）后读链上 balances，判断是否达到会员门槛
+// WalletConnect：连接拿地址（扫码/跳转）后读链上 balances，判断是否达到 VIP 门槛
 export async function connectAndReadMembershipWC(minUsdt = 1) {
   const adapter = await getWcAdapter()
   if (!adapter.address) {
@@ -61,5 +78,22 @@ export async function connectAndReadMembershipWC(minUsdt = 1) {
   const contract = await tronWeb.contract(acceptorAbi, DEPOSIT_CONTRACT)
   const raw = await contract.balances(address).call()
   const value = BigInt(raw?._hex ?? raw?.toString?.() ?? '0')
-  return value >= BigInt(Math.round(minUsdt * 1e6))
+  
+  // 计算可读的 USDT 余额（除以精度 1e6）
+  // Calculate readable USDT balance (divided by decimals 1e6)
+  const usdtBalance = Number(value) / 1e6
+  
+  // 判断已存金额是否满足 VIP 门槛
+  // Determine if deposited amount meets the VIP threshold
+  const isVip = value >= BigInt(Math.round(minUsdt * 1e6))
+  
+  // 打印 WalletConnect 的 VIP 判定日志
+  // Print detailed logs of the WalletConnect VIP verification
+  console.log(`[WalletConnect VIP Judgment Log / WalletConnect VIP 判定日志]`)
+  console.log(`- WalletConnect Address / WC钱包地址: ${address}`)
+  console.log(`- On-chain Deposit / 链上已存金额: ${usdtBalance} USDT (Raw: ${value.toString()})`)
+  console.log(`- Threshold Required / 准入门槛: ${minUsdt} USDT`)
+  console.log(`- Is VIP (Threshold Met) / 是否为 VIP (已达标): ${isVip}`)
+
+  return isVip
 }

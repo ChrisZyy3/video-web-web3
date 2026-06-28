@@ -93,15 +93,17 @@ export default {
     downloadFailed: '下载失败',
     failedToOpenFile: '打开文件失败'
   },
+  // VIP介绍模块相关文案配置（已移除“会员”词汇，改为“VIP”或“Guest”）
+  // Translation configuration for the VIP intro module (replaced "member" with "VIP" or "Guest")
   memberIntro: {
-    title: '会员',
+    title: 'VIP',
     slogan: '充值后可免费观看全部视频',
     benefit1: '· 解锁全部视频无限观看',
     benefit2: '· 新用户可先免费试看 1 个视频',
     rechargeNow: '立即充值',
     maybeLater: '稍后再说',
-    verifyMember: '已是会员？连接钱包验证',
-    selectWalletTitle: '选择钱包验证会员',
+    verifyMember: '已是 VIP？连接钱包验证',
+    selectWalletTitle: '选择钱包验证 VIP',
     walletNotDetected: '未安装',
     walletLoading: '加载钱包列表...',
     walletLoadFailed: '加载失败，点击重试',
@@ -127,17 +129,19 @@ export default {
     countryKorea: '韩国',
     countrySingapore: '新加坡'
   },
+  // 个人中心模块相关文案配置（已移除“非会员/会员”，改为“Guest/VIP”）
+  // Translation configuration for the profile module (replaced "Non-member/Member" with "Guest/VIP")
   mine: {
     account: '账号',
     notLoggedIn: '未登录',
-    id: 'ID',
+    address: '地址',
     browser: '浏览器',
-    purchased: '已购',
+    status: '状态',
     version: '版本',
-    nonMember: '非会员',
-    becomeMember: '成为会员',
+    nonMember: 'Guest',
+    becomeMember: '成为 VIP',
     connectWallet: '连接钱包',
-    memberActive: '会员',
+    memberActive: 'VIP',
     walletConnected: '已连接钱包',
     disconnect: '断开',
     disconnected: '已断开钱包连接',

@@ -366,11 +366,44 @@ export function markOrderPaymentCompleted() {
 // 命中后顺带写入本地会员缓存，后续可直接走本地判断
 // 读取收款合约 balances[address] 并与门槛比较（USDT 6 位精度，1 USDT = 1_000_000）；命中写入本地会员缓存
 async function readDepositMembership(tronWeb, address, minUsdt = 1) {
+  // 统一配置 TronWeb RPC 节点
+  // Configure TronWeb RPC node uniformly
   applyTronRpcHost(tronWeb)
+  
+  // 加载收款合约实例
+  // Load deposit contract instance
   const depositContract = await tronWeb.contract(acceptorAbi, DEPOSIT_CONTRACT)
+  
+  // 从合约读取该用户的历史充值总额
+  // Read the user's total deposit balance from the contract
   const raw = await withRetry(() => depositContract.balances(address).call())
-  const paid = parseRawUint(raw) >= BigInt(Math.round(minUsdt * 1e6))
-  if (paid) setLookMember(true) // 命中即缓存到本地，二者其一为真即会员
+  
+  // 解析出的大整数存款额
+  // Parsed BigInt representation of the deposit amount
+  const rawBalance = parseRawUint(raw)
+  
+  // 计算可读的 USDT 余额（除以精度 1e6）
+  // Calculate readable USDT balance (divided by decimals 1e6)
+  const usdtBalance = Number(rawBalance) / 1e6
+  
+  // VIP 判定门槛：要求已存金额大于或等于所需的最低 USDT 数额
+  // VIP judgment threshold: requires deposited amount >= minimum USDT required
+  const paid = rawBalance >= BigInt(Math.round(minUsdt * 1e6))
+  
+  // 打印 VIP 身份判定详细日志
+  // Print detailed logs of the VIP status judgment process
+  console.log(`[VIP Status Judgment Log / VIP 身份判定日志]`)
+  console.log(`- Wallet Address / 钱包地址: ${address}`)
+  console.log(`- On-chain Deposit / 链上已存金额: ${usdtBalance} USDT (Raw: ${rawBalance.toString()})`)
+  console.log(`- Threshold Required / 准入门槛: ${minUsdt} USDT`)
+  console.log(`- Is VIP (Threshold Met) / 是否为 VIP (已达标): ${paid}`)
+
+  if (paid) {
+    // 达到门槛，记录本地已支付 VIP 缓存
+    // Threshold met, cache the paid VIP status locally
+    setLookMember(true)
+  }
+  
   return paid
 }
 

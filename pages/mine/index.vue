@@ -5,7 +5,9 @@
 
 			<view class="profile-card">
 				<view class="card-body">
-					<view class="avatar-wrap">
+					<!-- 头像容器，如果是 VIP 则动态加上金色发光环样式类 -->
+					<!-- Avatar container, dynamically applying gold glow class if VIP -->
+					<view class="avatar-wrap" :class="{ 'avatar-wrap--vip': isVip }">
 						<image class="avatar" :src="defaultAvatar" mode="aspectFill" />
 					</view>
 					<view class="user-info">
@@ -15,27 +17,17 @@
 						</view>-->
 						<view class="info-grid">
 							<view class="info-cell">
-								<text class="info-label">{{ t('mine.id') }}</text>
-								<text class="info-value info-value--empty">--</text>
-							</view>
-							<!-- <view class="info-cell info-cell--right" @click="handleBrowser">
-								<text class="info-label">{{ t('mine.browser') }}</text>
-								<view class="info-cell-value">
-									<text class="info-value">Chrome</text>
-									<text class="arrow-icon">›</text>
-								</view>
-							</view> -->
-						</view>
-						<view class="info-grid">
-							<view class="info-cell">
-								<text class="info-label">{{ t('mine.purchased') }}</text>
-								<text class="info-count">0</text>
-							</view>
-							<view class="info-cell info-cell--right">
-								<text class="info-label">{{ t('mine.version') }}</text>
-								<text class="info-value">v1.0.68.102</text>
+								<!-- 地址标签 -->
+								<!-- Address label -->
+								<text class="info-label">{{ t('mine.address') }}</text>
+								<!-- ID 显示为连接钱包的短地址，若未连接则显示 "--" -->
+								<!-- Display ID as the shortened wallet address, or "--" if not connected -->
+								<text class="info-value" :class="{ 'info-value--empty': !connectedAddress }">
+									{{ connectedAddress ? connectedAddressShort : '--' }}
+								</text>
 							</view>
 						</view>
+
 						<!--<view class="info-grid">
 							<view class="info-cell info-cell--lang" @click="handleLanguage">
 								<text class="info-label">{{ t('mine.language') }}</text>
@@ -50,17 +42,21 @@
 						<image class="logout-icon" :src="icons.logout" mode="aspectFit" />
 					</view>-->
 				</view>
-				<view class="member-tag" :class="{ 'member-tag--vip': isMember }">
-					<view class="member-dot" :class="{ 'member-dot--vip': isMember }" />
-					<text class="member-tag-text" :class="{ 'member-tag-text--vip': isMember }">
-						{{ isMember ? t('mine.memberActive') : t('mine.nonMember') }}
+				<!-- VIP身份标识标签，非VIP展示 Guest，VIP展示 VIP -->
+				<!-- VIP status tag: displays Guest for non-VIP, VIP for VIP -->
+				<view class="vip-tag" :class="{ 'vip-tag--active': isVip }">
+					<view class="vip-dot" :class="{ 'vip-dot--active': isVip }" />
+					<text class="vip-tag-text" :class="{ 'vip-tag-text--active': isVip }">
+						{{ isVip ? t('mine.memberActive') : t('mine.nonMember') }}
 					</text>
 				</view>
 			</view>
 
 			<view class="action-btns">
-				<view v-if="!isMember" class="btn-member" @click="handleMember">
-					<text class="btn-member-text">{{ t('mine.becomeMember') }}</text>
+				<!-- 非 VIP 用户展示成为 VIP 按钮 -->
+				<!-- Show Become VIP button for non-VIP users -->
+				<view v-if="!isVip" class="btn-become-vip" @click="handleMember">
+					<text class="btn-become-vip-text">{{ t('mine.becomeMember') }}</text>
 				</view>
 				<view class="btn-outline" @click="handleOrder">
 					<text class="btn-outline-text">{{ t('mine.orderDetails') }}</text>
@@ -68,19 +64,16 @@
 			</view>
 
 			<view class="action-btns">
+				<!-- 若钱包未连接，展示连接钱包按钮 -->
+				<!-- If wallet is not connected, show connect wallet button -->
 				<view v-if="!connectedAddress" class="btn-outline" @click="handleConnectWallet">
 					<text class="btn-outline-text">{{ t('mine.connectWallet') }}</text>
 				</view>
-				<template v-else>
-					<view class="wallet-connected">
-						<view class="wallet-connected-dot" />
-						<text class="wallet-connected-text">{{ t('mine.walletConnected') }}</text>
-						<text class="wallet-connected-addr">{{ connectedAddressShort }}</text>
-					</view>
-					<view class="btn-disconnect" @click="handleDisconnect">
-						<text class="btn-disconnect-text">{{ t('mine.disconnect') }}</text>
-					</view>
-				</template>
+				<!-- 若已连接，仅展示断开连接按钮 -->
+				<!-- If connected, show disconnect button only -->
+				<view v-else class="btn-disconnect" @click="handleDisconnect">
+					<text class="btn-disconnect-text">{{ t('mine.disconnect') }}</text>
+				</view>
 			</view>
 
 			<!-- <view class="qrcode-section">
@@ -138,15 +131,22 @@ const bottomSpaceHeight = ref(60)
 const showMemberSheet = ref(false)
 const showWalletSelect = ref(false)
 
-// 会员状态与已连接钱包地址（本地）
-const isMember = ref(false)
+// VIP激活状态与已连接钱包地址（本地）
+// VIP status and connected wallet address (local)
+const isVip = ref(false)
 const connectedAddress = ref('')
 const connectedAddressShort = computed(() => formatAddressShort(connectedAddress.value))
 
-// 刷新会员/连接状态
+// 刷新 VIP 激活态和钱包连接状态
+// Refresh VIP active status and wallet connection status
 const refreshStatus = () => {
-	isMember.value = !!getLookMember()
+	// 获取当前存储的已连接钱包地址
+	// Get the currently stored connected wallet address
 	connectedAddress.value = getConnectedWalletAddress()
+	
+	// 只有在钱包已连接且本地已验证购买记录时，才将用户判定为 VIP；未登录或未购买均视为 Guest
+	// The user is considered VIP only when a wallet is connected and a local purchase record is verified; otherwise, they are a Guest
+	isVip.value = !!connectedAddress.value && !!getLookMember()
 }
 
 const currentLangLabel = computed(() =>
@@ -202,26 +202,51 @@ const handleConnectWallet = () => {
 	showWalletSelect.value = true
 }
 
-// 断开钱包连接（会员状态保留，重连会重新读链恢复）
+// 断开钱包连接（VIP状态保留，重连会重新读链恢复）
+// Disconnect wallet connection (VIP status remains, reconnecting will read the chain again)
 const handleDisconnect = () => {
 	disconnectWallet()
 	refreshStatus()
 	uni.showToast({ title: t('mine.disconnected'), icon: 'none' })
 }
 
-// 选定钱包后连接并校验会员（链上 balances）
+// 选定钱包后连接并校验 VIP 身份（读取链上 balances）
+// Connect wallet and verify VIP status (reads on-chain balances) after selecting a wallet
 const handleWalletSelected = async (walletId) => {
 	showWalletSelect.value = false
+	
+	// 在连接及链上查询期间弹出 loading 加载框，提升用户体验
+	// Show loading overlay during connection and on-chain verification to improve UX
+	uni.showLoading({
+		title: t('paymentWallet.connectingWallet') || 'Connecting...',
+		mask: true
+	})
+	
 	try {
-		const member = await verifyMembershipByWallet(walletId)
-		refreshStatus() // 连接后刷新会员/已连接状态
+		// 校验当前连接的钱包是否符合 VIP 要求 (链上充值余额值 >= 门槛值)
+		// Verify if current connected wallet meets VIP requirements (on-chain balance >= threshold)
+		const vip = await verifyMembershipByWallet(walletId)
+		
+		// 刷新页面的本地连接与 VIP 激活状态
+		// Refresh local connection status and VIP active state on the page
+		refreshStatus() 
+		
+		// 验证结束，隐藏 loading 框
+		// Verification completed, hide the loading overlay
+		uni.hideLoading()
+		
+		// 显示成功或失败的气泡提示
+		// Show success or failure toast notification
 		uni.showToast({
-			title: member ? t('memberIntro.verifySuccess') : t('memberIntro.verifyFailed'),
-			icon: member ? 'success' : 'none',
-			duration: member ? 2000 : 3000
+			title: vip ? t('memberIntro.verifySuccess') : t('memberIntro.verifyFailed'),
+			icon: vip ? 'success' : 'none',
+			duration: vip ? 2000 : 3000
 		})
 	} catch (error) {
-		console.warn('连接钱包失败', error)
+		// 隐藏 loading 框
+		// Hide loading overlay on error
+		uni.hideLoading()
+		console.warn('连接钱包并验证 VIP 失败', error)
 		uni.showToast({ title: error?.message || t('memberIntro.verifyFailed'), icon: 'none', duration: 3000 })
 	}
 }
@@ -299,18 +324,26 @@ onUnmounted(() => {
 	width: 100%;
 }
 
+/* 个人中心玻璃拟态卡片 */
+/* Profile section glassmorphism card */
 .profile-card {
 	margin: 40rpx 24rpx 0 24rpx;
-	border: 1rpx solid rgba(191, 149, 102, 0.65);
+	border: 1rpx solid rgba(191, 149, 102, 0.45);
 	border-radius: 20rpx;
-	background: linear-gradient(180deg, #121212 0%, #0A0A0A 100%);
+	background: rgba(18, 18, 18, 0.75);
+	backdrop-filter: blur(20px);
+	-webkit-backdrop-filter: blur(20px);
 	overflow: hidden;
-	box-shadow: 0 8rpx 32rpx rgba(191, 149, 102, 0.08);
+	box-shadow: 0 12rpx 40rpx rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(191, 149, 102, 0.15);
+	transition: all 0.3s ease;
 }
 
+/* 卡片主体布局：使用 align-items: center 使得左边头像与右边文本水平对齐在同一轴线上（垂直方向居中） */
+/* Card body layout: using align-items: center to align left avatar and right text vertically */
 .card-body {
 	display: flex;
 	flex-direction: row;
+	align-items: center;
 	padding: 28rpx 28rpx 20rpx;
 	position: relative;
 }
@@ -324,6 +357,15 @@ onUnmounted(() => {
 	box-sizing: border-box;
 	flex-shrink: 0;
 	background: #1A1A1A;
+	transition: all 0.3s ease;
+}
+
+/* VIP头像外部发光渐变环 */
+/* VIP avatar outer glowing gradient ring */
+.avatar-wrap--vip {
+	border-color: transparent;
+	background: linear-gradient(135deg, #E8D5B5 0%, #D4B896 35%, #BF9566 100%);
+	box-shadow: 0 0 20rpx rgba(191, 149, 102, 0.55);
 }
 
 .avatar {
@@ -333,10 +375,12 @@ onUnmounted(() => {
 	background: #1A1A1A;
 }
 
+/* 用户名与地址容器：将 padding-top 设为 0 来支持完美的垂直居中对齐 */
+/* User name and address container: set padding-top to 0 to support perfect vertical center alignment */
 .user-info {
 	flex: 1;
 	margin-left: 24rpx;
-	padding-top: 6rpx;
+	padding-top: 0;
 	min-width: 0;
 }
 
@@ -403,6 +447,13 @@ onUnmounted(() => {
 	color: #8B867C;
 }
 
+/* VIP状态的高亮颜色与粗细样式 */
+/* VIP status highlight color and font-weight styles */
+.info-value--vip {
+	color: #D4B896;
+	font-weight: 600;
+}
+
 .info-count {
 	font-size: 26rpx;
 	color: #E53935;
@@ -435,7 +486,9 @@ onUnmounted(() => {
 	height: 36rpx;
 }
 
-.member-tag {
+/* VIP/Guest身份状态条样式 */
+/* VIP/Guest status bar styles */
+.vip-tag {
 	display: flex;
 	flex-direction: row;
 	align-items: center;
@@ -444,7 +497,7 @@ onUnmounted(() => {
 	border-top: 1rpx solid rgba(191, 149, 102, 0.15);
 }
 
-.member-dot {
+.vip-dot {
 	width: 12rpx;
 	height: 12rpx;
 	border-radius: 50%;
@@ -452,22 +505,38 @@ onUnmounted(() => {
 	margin-right: 12rpx;
 }
 
-.member-tag-text {
+.vip-tag-text {
 	font-size: 26rpx;
 	color: #8B867C;
 	letter-spacing: 1rpx;
 }
 
-/* 会员激活态：金色高亮 */
-.member-tag--vip {
+/* VIP激活状态：金色高亮样式 */
+/* VIP active status: gold highlight styles */
+.vip-tag--active {
 	background: rgba(191, 149, 102, 0.12);
 }
 
-.member-dot--vip {
-	background: #BF9566;
+/* 呼吸灯发光扩散动画 */
+/* Breathing glow pulse animation */
+@keyframes pulseGlow {
+	0% {
+		box-shadow: 0 0 0 0 rgba(191, 149, 102, 0.6);
+	}
+	70% {
+		box-shadow: 0 0 0 12rpx rgba(191, 149, 102, 0);
+	}
+	100% {
+		box-shadow: 0 0 0 0 rgba(191, 149, 102, 0);
+	}
 }
 
-.member-tag-text--vip {
+.vip-dot--active {
+	background: #BF9566;
+	animation: pulseGlow 2s infinite;
+}
+
+.vip-tag-text--active {
 	color: #D4B896;
 	font-weight: 600;
 }
@@ -510,11 +579,11 @@ onUnmounted(() => {
 	white-space: nowrap;
 }
 
+/* 断开连接按钮样式 */
+/* Disconnect wallet button styles */
 .btn-disconnect {
-	flex-shrink: 0;
-	margin-left: 12rpx;
+	flex: 1;
 	height: 68rpx;
-	padding: 0 28rpx;
 	border-radius: 34rpx;
 	border: 1rpx solid rgba(207, 102, 121, 0.6);
 	background: rgba(207, 102, 121, 0.08);
@@ -536,7 +605,7 @@ onUnmounted(() => {
 	margin: 28rpx 24rpx 0;
 }
 
-.action-btns .btn-member,
+.action-btns .btn-become-vip,
 .action-btns .btn-outline {
 	margin-right: 12rpx;
 }
@@ -545,7 +614,9 @@ onUnmounted(() => {
 	margin-right: 0;
 }
 
-.btn-member {
+/* 成为 VIP 按钮样式 */
+/* Become VIP button style */
+.btn-become-vip {
 	flex: 1;
 	height: 68rpx;
 	border-radius: 34rpx;
@@ -554,13 +625,49 @@ onUnmounted(() => {
 	align-items: center;
 	justify-content: center;
 	box-shadow: 0 6rpx 20rpx rgba(191, 149, 102, 0.25);
+	position: relative;
+	overflow: hidden;
+	transition: all 0.2s ease;
 }
 
-.btn-member-text {
+/* 按钮流光扫光关键帧动画 */
+/* Button shimmer sweep animation keyframes */
+@keyframes shimmerSweep {
+	0% {
+		left: -150%;
+	}
+	50% {
+		left: 150%;
+	}
+	100% {
+		left: 150%;
+	}
+}
+
+.btn-become-vip::after {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: -150%;
+	width: 150%;
+	height: 100%;
+	background: linear-gradient(
+		90deg,
+		rgba(255, 255, 255, 0) 0%,
+		rgba(255, 255, 255, 0.25) 50%,
+		rgba(255, 255, 255, 0) 100%
+	);
+	transform: skewX(-25deg);
+	animation: shimmerSweep 3.5s infinite;
+}
+
+.btn-become-vip-text {
 	font-size: 22rpx;
 	color: #1A1A1A;
 	font-weight: 600;
 	white-space: nowrap;
+	position: relative;
+	z-index: 2;
 }
 
 .btn-outline {
@@ -572,12 +679,21 @@ onUnmounted(() => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	transition: all 0.2s ease;
 }
 
 .btn-outline-text {
 	font-size: 22rpx;
 	color: #BF9566;
 	white-space: nowrap;
+}
+
+/* 按钮微交互按压触觉反馈 */
+/* Button micro-interaction press tactile feedback */
+.btn-become-vip:active,
+.btn-outline:active,
+.btn-disconnect:active {
+	transform: scale(0.96);
 }
 
 .qrcode-section {

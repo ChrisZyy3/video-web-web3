@@ -93,15 +93,17 @@ export default {
     downloadFailed: 'Download failed',
     failedToOpenFile: 'Failed to open file'
   },
+  // VIP介绍模块英文相关文案配置（已移除“Member”等词汇，改为“VIP”或“Guest”）
+  // Translation configuration for the VIP intro module in English (replaced "Member" with "VIP" or "Guest")
   memberIntro: {
-    title: 'Membership',
+    title: 'VIP',
     slogan: 'Recharge to watch all videos for free',
     benefit1: '· Unlock unlimited access to all videos',
     benefit2: '· New users can try 1 video for free first',
     rechargeNow: 'Recharge Now',
     maybeLater: 'Maybe Later',
-    verifyMember: 'Already a member? Connect wallet',
-    selectWalletTitle: 'Select wallet to verify',
+    verifyMember: 'Already VIP? Connect wallet',
+    selectWalletTitle: 'Select wallet to verify VIP',
     walletNotDetected: 'Not installed',
     walletLoading: 'Loading wallets...',
     walletLoadFailed: 'Load failed, tap to retry',
@@ -127,17 +129,19 @@ export default {
     countryKorea: 'South Korea',
     countrySingapore: 'Singapore'
   },
+  // 个人中心模块英文相关文案配置（已移除“Non-member/Member”，改为“Guest/VIP”）
+  // Translation configuration for the profile module in English (replaced "Non-member/Member" with "Guest/VIP")
   mine: {
     account: 'Account',
     notLoggedIn: 'Not logged in',
-    id: 'ID',
+    address: 'Address',
     browser: 'Browser',
-    purchased: 'Purchased',
+    status: 'Status',
     version: 'Version',
-    nonMember: 'Non-member',
-    becomeMember: 'Become a Member',
+    nonMember: 'Guest',
+    becomeMember: 'Become VIP',
     connectWallet: 'Connect Wallet',
-    memberActive: 'Member',
+    memberActive: 'VIP',
     walletConnected: 'Wallet Connected',
     disconnect: 'Disconnect',
     disconnected: 'Wallet disconnected',
