@@ -357,16 +357,38 @@ export async function checkOnChainMembership({ minUsdt = 1, walletId = '' } = {}
   }
 }
 
-// 按用户在选择弹窗中选定的钱包验证会员：统一走官方 @tronweb3 adapter
-// 注入式（TronLink/OKX/TokenPocket）弹扩展授权，WalletConnect 弹二维码；连接拿地址后读链上 balances
-// 动态 import：adapter 相关库（含 WalletConnect）只在用户真正验证时加载，不拖累首屏/其它页面
+// 向指定注入钱包请求账户授权（精确到单个钱包，避免多钱包同时弹窗）
+function requestTronAccountsFor(walletId) {
+  if (walletId === 'okx') return window.okxwallet?.tronLink?.request?.({ method: 'tron_requestAccounts' })
+  if (walletId === 'bitkeep') return window.bitkeep?.request?.({ method: 'tron_requestAccounts' })
+  // tronlink / tokenpocket / imtoken / 默认：标准 tronLink 注入入口
+  return window.tronLink?.request?.({ method: 'tron_requestAccounts' })
+}
+
+// 按用户在选择弹窗中选定的钱包验证会员
+// 注入式（TronLink/TokenPocket/imToken/BitKeep/OKX）：请求授权 → getTronWeb 拿地址 → 读链
+// WalletConnect：动态加载 adapter，扫码/跳转连接 → 读链（重依赖仅此路加载）
 export async function verifyMembershipByWallet(walletId = '', { minUsdt = 1 } = {}) {
   if (typeof window === 'undefined') return false
   try {
-    const { connectAndReadMembership } = await import('@/utils/wallet-adapters')
-    const paid = await connectAndReadMembership(walletId, minUsdt)
-    if (paid) setLookMember(true) // 命中即缓存到本地，二者其一为真即会员
-    return paid
+    if (walletId === 'walletconnect') {
+      const { connectAndReadMembershipWC } = await import('@/utils/wallet-adapters')
+      const paid = await connectAndReadMembershipWC(minUsdt)
+      if (paid) setLookMember(true) // 命中即缓存到本地，二者其一为真即会员
+      return paid
+    }
+
+    // 注入式：仅向所选钱包请求授权，再轮询其注入的地址
+    try { await requestTronAccountsFor(walletId) } catch (e) { /* 未安装/拒绝 → 下方按拿不到地址处理 */ }
+    let tronWeb = null
+    for (let i = 0; i < 12; i++) {
+      tronWeb = getTronWeb(walletId)
+      if (tronWeb?.defaultAddress?.base58) break
+      await new Promise((resolve) => setTimeout(resolve, 250))
+    }
+    const address = tronWeb?.defaultAddress?.base58
+    if (!address) return false
+    return await readDepositMembership(tronWeb, address, minUsdt) // 命中内部已写本地缓存
   } catch (error) {
     console.warn('指定钱包会员校验失败', error)
     return false

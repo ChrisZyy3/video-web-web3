@@ -3,28 +3,19 @@
 		<view class="ws-panel" @click.stop>
 			<text class="ws-title">{{ t('memberIntro.selectWalletTitle') }}</text>
 
-			<view v-if="loading" class="ws-loading">
-				<text class="ws-loading-text">{{ t('memberIntro.walletLoading') }}</text>
-			</view>
-
-			<view v-else-if="loadError" class="ws-loading" @click="loadWallets">
-				<text class="ws-loading-text">{{ t('memberIntro.walletLoadFailed') }}</text>
-			</view>
-
-			<template v-else>
-				<view
-					v-for="w in wallets"
-					:key="w.id"
-					class="ws-item"
-					@click="handleSelect(w)"
-				>
-					<image v-if="w.icon" class="ws-icon" :src="w.icon" mode="aspectFit" />
-					<view v-else class="ws-icon ws-icon--ph" />
-					<text class="ws-name">{{ w.name }}</text>
-					<text v-if="!w.installed && w.id !== 'WalletConnect'" class="ws-tag">{{ t('memberIntro.walletNotDetected') }}</text>
-					<text class="ws-arrow">›</text>
+			<view
+				v-for="w in wallets"
+				:key="w.id"
+				class="ws-item"
+				@click="handleSelect(w.id)"
+			>
+				<view class="ws-icon" :class="w.id">
+					<img v-if="w.img" :src="w.img" />
+					<text v-else class="ws-badge" :style="{ background: w.color }">{{ w.badge }}</text>
 				</view>
-			</template>
+				<text class="ws-name">{{ w.name }}</text>
+				<text class="ws-arrow">›</text>
+			</view>
 
 			<view class="ws-cancel" @click="handleClose">
 				<text class="ws-cancel-text">{{ t('memberIntro.maybeLater') }}</text>
@@ -34,63 +25,32 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import wallet1 from '@/static/images/wallet1.png'
+import wallet2 from '@/static/images/wallet2.png'
+import wallet3 from '@/static/images/wallet3.png'
+import wallet4 from '@/static/images/wallet4.png'
 
 const { t } = useI18n()
 
-const props = defineProps({
+defineProps({
 	visible: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['update:visible', 'select'])
 
-const wallets = ref([])
-const loading = ref(false)
-const loadError = ref(false)
+// 与 payment-wallet 页一致的 4 个钱包（同图标）+ OKX + WalletConnect
+const wallets = [
+	{ id: 'tronlink', name: 'TronLink', img: wallet1 },
+	{ id: 'tokenpocket', name: 'TokenPocket', img: wallet2 },
+	{ id: 'imtoken', name: 'imToken', img: wallet3 },
+	{ id: 'bitkeep', name: 'BitKeep', img: wallet4 },
+	{ id: 'okx', name: 'OKX Wallet', badge: 'OKX', color: '#1A1A1A' },
+	{ id: 'walletconnect', name: 'WalletConnect', badge: 'WC', color: '#3B99FC' }
+]
 
-// 加载官方 adapter 列表（真实 logo + 是否检测到已安装）
-// 动态 import 让 adapter 重依赖只在需要时加载，不进首屏包；加超时兜底，避免无限卡在加载态
-const loadWallets = async () => {
-	loading.value = true
-	loadError.value = false
-	try {
-		const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('wallet list timeout')), 20000))
-		const { listWallets } = await Promise.race([import('@/utils/wallet-adapters'), timeout])
-		wallets.value = listWallets()
-		try { sessionStorage.removeItem('ws-chunk-reloaded') } catch (e2) {}
-	} catch (e) {
-		console.warn('加载钱包列表失败', e)
-		// 旧部署残留 / 缓存的 chunk hash 失效（Failed to fetch dynamically imported module）→ 自动刷新一次拉取最新资源
-		const isStaleChunk = /dynamically imported module|Importing a module script failed|error loading dynamically imported/i.test(e?.message || '')
-		let reloaded = false
-		try { reloaded = sessionStorage.getItem('ws-chunk-reloaded') === '1' } catch (e2) {}
-		if (isStaleChunk && !reloaded && typeof location !== 'undefined') {
-			try { sessionStorage.setItem('ws-chunk-reloaded', '1') } catch (e2) {}
-			location.reload()
-			return
-		}
-		loadError.value = true
-	} finally {
-		loading.value = false
-	}
-}
-
-// 弹窗首次打开时加载
-watch(
-	() => props.visible,
-	(v) => {
-		if (v && !wallets.value.length) loadWallets()
-	}
-)
-
-const handleSelect = (w) => {
-	// 未安装的注入钱包：引导去下载；其余（含 WalletConnect）直接发起连接
-	if (!w.installed && w.id !== 'WalletConnect' && w.downloadUrl) {
-		window.open(w.downloadUrl, '_blank')
-		return
-	}
-	emit('select', w.id)
+const handleSelect = (walletId) => {
+	emit('select', walletId)
 }
 
 const handleClose = () => {
@@ -131,23 +91,11 @@ const handleClose = () => {
 	margin-bottom: 28rpx;
 }
 
-.ws-loading {
-	padding: 48rpx 0;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.ws-loading-text {
-	font-size: 26rpx;
-	color: #8B867C;
-}
-
 .ws-item {
 	display: flex;
 	flex-direction: row;
 	align-items: center;
-	padding: 24rpx 20rpx;
+	padding: 20rpx;
 	border-radius: 16rpx;
 	background: rgba(191, 149, 102, 0.08);
 	border: 1rpx solid rgba(191, 149, 102, 0.18);
@@ -158,15 +106,32 @@ const handleClose = () => {
 }
 
 .ws-icon {
-	width: 64rpx;
-	height: 64rpx;
+	width: 72rpx;
+	height: 72rpx;
 	border-radius: 16rpx;
 	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
 	background: #fff;
 }
 
-.ws-icon--ph {
-	background: rgba(191, 149, 102, 0.2);
+/* 与 payment-wallet 一致的各钱包图标缩放（wallet1~4 图片裁切比例不同） */
+.ws-icon.tronlink img { width: 165%; position: relative; left: -2rpx; }
+.ws-icon.tokenpocket img { width: 250%; }
+.ws-icon.imtoken img { width: 190%; }
+.ws-icon.bitkeep img { width: 129%; position: relative; top: -1.5rpx; left: 1rpx; }
+
+.ws-badge {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 22rpx;
+	font-weight: 700;
+	color: #fff;
 }
 
 .ws-name {
@@ -175,15 +140,6 @@ const handleClose = () => {
 	font-size: 30rpx;
 	color: #F0E6D8;
 	font-weight: 600;
-}
-
-.ws-tag {
-	margin-right: 12rpx;
-	font-size: 20rpx;
-	color: #8B867C;
-	padding: 2rpx 12rpx;
-	border-radius: 8rpx;
-	background: rgba(139, 134, 124, 0.15);
 }
 
 .ws-arrow {
