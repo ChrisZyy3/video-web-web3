@@ -32,11 +32,22 @@
 						preload="metadata"
 						object-fit="contain"
 						@play="onVideoPlay"
-						@pause="playing = false"
-						@ended="playing = false"
+						@waiting="onVideoWaiting"
+						@pause="onVideoPause"
+						@ended="onVideoEnded"
 						@timeupdate="onTimeUpdate"
 						@error="onVideoError"
 					/>
+					<!-- Custom loading spinner overlay shown when the video is loading or buffering -->
+					<!-- 当视频加载中或缓冲时显示的自定义加载动画遮罩层 -->
+					<view v-if="videoLoading" class="player-loading-overlay">
+						<!-- Spinner circle element with rotating animation -->
+						<!-- 旋转的圆形加载动画元素 -->
+						<view class="loading-spinner" />
+						<!-- Loading text translation display -->
+						<!-- 正在加载的国际化提示文字 -->
+						<text class="loading-text">{{ t('videoDetail.loading') || 'Loading...' }}</text>
+					</view>
 					<view v-if="!useIosNativeControls && !playing" class="player-mask" @click="handleTogglePlay">
 						<view class="player-play-btn">
 							<image class="player-play-icon" :src="icons.play" mode="aspectFit" />
@@ -115,6 +126,9 @@ const favorited = ref(false)
 const currentTime = ref(0)
 const duration = ref(0)
 const downloading = ref(false)
+// Track loading or buffering state of the video player
+// 标记视频播放器是否处于缓冲或加载状态的响应式变量
+const videoLoading = ref(false)
 
 const detail = ref({
 	id: '',
@@ -153,8 +167,13 @@ const handleWalletSelected = async (walletId) => {
 		if (member) {
 			showMemberIntro.value = false
 			uni.showToast({ title: t('memberIntro.verifySuccess'), icon: 'success' })
-			// 校验通过即视为会员，直接开始播放当前视频
-			getCtx().play()
+			// Play only if video URL is loaded to avoid NotSupportedError
+			// 仅在视频播放源加载完成后才调用播放，避免抛出 NotSupportedError 错误
+			if (detail.value.play_url) {
+				// Safely call the play method
+				// 安全调用播放接口
+				getCtx().play()
+			}
 		} else {
 			uni.showToast({ title: t('memberIntro.verifyFailed'), icon: 'none' })
 		}
@@ -332,12 +351,20 @@ const formatTime = (sec) => {
 const onTimeUpdate = (e) => {
 	currentTime.value = e.detail.currentTime || 0
 	duration.value = e.detail.duration || duration.value
+	// If progress is moving forward, safely dismiss the loading spinner
+	// 只要播放进度正在前进且仍在显示加载圈，就隐去加载动画
+	if (videoLoading.value) {
+		videoLoading.value = false
+	}
 }
 
 // 视频文件加载失败时的事件回调，弹出警告提示
 // Callback when video file loading fails, displays alert toast
 const onVideoError = (e) => {
 	console.error('Video player source error:', e)
+	// Clear loading state
+	// 出错时隐去加载动画
+	videoLoading.value = false
 	uni.showToast({
 		title: t('videoDetail.videoLoadError'),
 		icon: 'none',
@@ -345,6 +372,8 @@ const onVideoError = (e) => {
 	})
 }
 
+// Triggered when video starts playing
+// 视频正式开始播放的回调
 const onVideoPlay = async () => {
 	// Security check to pause playback if limit is exceeded (e.g. native autoplay/native controls play)
 	// 播放时的安全防护逻辑：如果超出了免费观看限制，则暂停播放并显示会员引导弹窗
@@ -358,7 +387,12 @@ const onVideoPlay = async () => {
 		}
 		getCtx().play()
 	}
+	// Mark playing status as true
+	// 标记视频正在播放
 	playing.value = true
+	// Show buffering animation until first frame renders
+	// 开启缓冲加载动画
+	videoLoading.value = true
 	
 	// Increment total play counter only if this video session play has not been counted yet on this page visit
 	// 如果该视频的当前详情页会话在此前尚未被记录播放次数，且用户非会员，在此递增播放计数并标记已记录
@@ -370,12 +404,56 @@ const onVideoPlay = async () => {
 	setLookVideo(detail.value)
 }
 
+// Triggered when playback is paused
+// 当播放暂停时的回调
+const onVideoPause = () => {
+	// Mark playing state as false
+	// 标记播放状态为假
+	playing.value = false
+	// Hide loading spinner
+	// 隐藏加载动画
+	videoLoading.value = false
+}
+
+// Triggered when video playback reaches the end
+// 当视频播放结束时的回调
+const onVideoEnded = () => {
+	// Mark playing state as false
+	// 标记播放状态为假
+	playing.value = false
+	// Hide loading spinner
+	// 隐藏加载动画
+	videoLoading.value = false
+}
+
+// Triggered when media stops playing due to lack of buffering data
+// 当播放遇到卡顿、正在缓冲时触发
+const onVideoWaiting = () => {
+	// Show the loading spinner overlay
+	// 开启缓冲加载层
+	videoLoading.value = true
+}
+
 const handleBack = () => {
 	getCtx().pause()
+	// Reset loading state on exit
+	// 退出页面时重置加载状态
+	videoLoading.value = false
 	uni.navigateBack()
 }
 
 const handleTogglePlay = async () => {
+	// Block play if the video source is not yet loaded
+	// 如果视频资源地址尚未加载完成，则直接拦截，防止 play() 抛出无视频源的错误
+	if (!detail.value.play_url) {
+		// Display a toast message notifying the user that the video is loading
+		// 弹出提示信息告诉用户视频正在加载中
+		uni.showToast({ title: t('videoDetail.loading') || 'Loading...', icon: 'none' })
+		// Terminate the function execution early
+		// 提前结束函数执行
+		return
+	}
+
 	// Block play and re-trigger member intro popup if the limit is exceeded
 	// 如果超出了免费观看限制，阻止播放并重新弹出会员引导弹窗
 	if (isLimitExceeded()) {
@@ -564,6 +642,9 @@ watch(() => detail.value.play_url, () => {
 
 onUnload(() => {
 	getCtx().pause()
+	// Clear loading state on unload
+	// 卸载页面时关闭加载状态
+	videoLoading.value = false
 })
 
 onUnmounted(() => {
@@ -839,5 +920,51 @@ onUnmounted(() => {
 
 .bottom-space {
 	flex-shrink: 0;
+}
+
+/* Localized buffering loading overlay styles */
+/* 局部缓冲加载遮罩层样式 */
+.player-loading-overlay {
+	position: absolute; /* Set absolute position overlay */
+	top: 0; /* Align top */
+	left: 0; /* Align left */
+	right: 0; /* Align right */
+	bottom: 0; /* Align bottom */
+	background: rgba(0, 0, 0, 0.65); /* Dark translucent background */
+	display: flex; /* Flex layout alignment */
+	flex-direction: column; /* Stack components vertically */
+	align-items: center; /* Center horizontally */
+	justify-content: center; /* Center vertically */
+	z-index: 5; /* Position above video but below other major overlays */
+}
+
+/* Spin animation loader ring */
+/* 圆形旋转加载动画效果 */
+.loading-spinner {
+	width: 64rpx; /* Width size */
+	height: 64rpx; /* Height size */
+	border: 4rpx solid rgba(191, 149, 102, 0.25); /* Muted gold border base */
+	border-top-color: #BF9566; /* Accent solid gold border */
+	border-radius: 50%; /* Circle border radius */
+	animation: video-spin 0.8s linear infinite; /* Run rotation loop infinitely */
+}
+
+/* Loading label text */
+/* 加载文字提示 */
+.loading-text {
+	margin-top: 18rpx; /* Spacing */
+	font-size: 24rpx; /* Small text size */
+	color: #BF9566; /* Accent gold color matching theme */
+}
+
+/* Spinner frame rotations */
+/* 旋转动画帧 */
+@keyframes video-spin {
+	from {
+		transform: rotate(0deg); /* Start at 0 degrees */
+	}
+	to {
+		transform: rotate(360deg); /* End at 360 degrees */
+	}
 }
 </style>
