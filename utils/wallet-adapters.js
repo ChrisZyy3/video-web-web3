@@ -68,11 +68,14 @@ export async function readDepositBalanceByAddress(address, minUsdt = 1) {
 }
 
 // WalletConnect：连接拿地址（扫码/跳转）后读链上 balances，判断是否达到 VIP 门槛
-export async function connectAndReadMembershipWC(minUsdt = 1, { onUri } = {}) {
+export async function connectAndReadMembershipWC(minUsdt = 1, { onReady } = {}) {
+  // 注意：getWcAdapter 内含重依赖动态加载，是「点击→弹窗」的主要耗时点
   const adapter = await getWcAdapter()
   if (!adapter.address) {
-    // onUri 在 WC URI 生成（二维码即将弹出）时触发，调用方用它关掉前置 loading
-    await adapter.connect(onUri ? { onUri } : undefined) // 弹二维码 / 跳转钱包授权
+    // adapter 已就绪、AppKit 弹窗即将打开：通知调用方关闭前置 loading。
+    // 不能传 onUri——传了 adapter 会改走 connectWithUri 自定义渲染、不弹自带二维码弹窗。
+    onReady?.()
+    await adapter.connect() // adapter 自带 AppKit 弹窗：二维码 / 跳转钱包授权
   }
   const address = adapter.address
   if (!address) return false
