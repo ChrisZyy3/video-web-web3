@@ -69,17 +69,38 @@ export async function readDepositBalanceByAddress(address, minUsdt = 1) {
 
 // WalletConnect：连接拿地址（扫码/跳转）后读链上 balances，判断是否达到 VIP 门槛
 export async function connectAndReadMembershipWC(minUsdt = 1, { onReady } = {}) {
+  const WC = '[WalletConnect]'
   // 注意：getWcAdapter 内含重依赖动态加载，是「点击→弹窗」的主要耗时点
-  const adapter = await getWcAdapter()
+  console.log(`${WC} 开始连接，加载 adapter...`)
+  let adapter
+  try {
+    adapter = await getWcAdapter()
+  } catch (e) {
+    console.error(`${WC} adapter 加载/构造失败:`, e)
+    throw e
+  }
+  console.log(`${WC} adapter 就绪`, { readyState: adapter?.readyState, state: adapter?.state, existingAddress: adapter?.address || null })
+
   if (!adapter.address) {
     // adapter 已就绪、AppKit 弹窗即将打开：通知调用方关闭前置 loading。
     // 不能传 onUri——传了 adapter 会改走 connectWithUri 自定义渲染、不弹自带二维码弹窗。
     onReady?.()
-    await adapter.connect() // adapter 自带 AppKit 弹窗：二维码 / 跳转钱包授权
+    try {
+      console.log(`${WC} 调用 adapter.connect()，等待弹窗/钱包授权...`)
+      const connectRet = await adapter.connect() // adapter 自带 AppKit 弹窗：二维码 / 跳转钱包授权
+      console.log(`${WC} connect() 返回:`, connectRet, '| 连接后地址:', adapter.address || null)
+    } catch (e) {
+      console.error(`${WC} connect() 抛错:`, e?.name, e?.message, e)
+      throw e
+    }
   }
   const address = adapter.address
-  if (!address) return false
+  if (!address) {
+    console.warn(`${WC} 连接结束但未拿到地址，返回 false`)
+    return false
+  }
 
+  console.log(`${WC} 已连接地址: ${address}，开始读链 balances...`)
   const tronWeb = await getReader()
   const contract = await tronWeb.contract(acceptorAbi, DEPOSIT_CONTRACT)
   const raw = await contract.balances(address).call()
