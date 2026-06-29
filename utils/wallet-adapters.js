@@ -44,6 +44,9 @@ async function getReader() {
 export async function readDepositBalanceByAddress(address, minUsdt = 1) {
   if (!address) return false
   const tronWeb = await getReader()
+  // 只读实例无 owner 地址，常量 call 也要求 owner_address，否则报 "owner_address isn't set"。
+  // 把待查地址设为 owner（无私钥，仅用于构造只读请求）。
+  tronWeb.setAddress(address)
   const contract = await tronWeb.contract(acceptorAbi, DEPOSIT_CONTRACT)
   const raw = await contract.balances(address).call()
   const value = BigInt(raw?._hex ?? raw?.toString?.() ?? '0')
@@ -87,13 +90,6 @@ export async function connectAndReadMembershipWC(minUsdt = 1, { onReady } = {}) 
     onReady?.()
     try {
       console.log(`${WC} 调用 adapter.connect()，等待弹窗/钱包授权...`)
-      // 诊断：connect 是 await 阻塞的，用 setTimeout 旁路探测 AppKit 弹窗 DOM 是否真渲染出来
-      setTimeout(() => {
-        const el = document.querySelector('w3m-modal, wcm-modal, appkit-modal, w3m-router')
-        const customEls = [...document.body.children].map(n => n.tagName.toLowerCase()).filter(t => t.includes('-'))
-        console.log(`${WC} 弹窗DOM探测:`, el ? `${el.tagName} display=${getComputedStyle(el).display} visible=${el.offsetParent !== null}` : '❌未找到弹窗元素')
-        console.log(`${WC} body下自定义元素:`, customEls.join(', ') || '(无)')
-      }, 1800)
       const connectRet = await adapter.connect() // adapter 自带 AppKit 弹窗：二维码 / 跳转钱包授权
       console.log(`${WC} connect() 返回:`, connectRet, '| 连接后地址:', adapter.address || null)
     } catch (e) {
@@ -109,6 +105,7 @@ export async function connectAndReadMembershipWC(minUsdt = 1, { onReady } = {}) 
 
   console.log(`${WC} 已连接地址: ${address}，开始读链 balances...`)
   const tronWeb = await getReader()
+  tronWeb.setAddress(address) // 只读实例无 owner，常量 call 也需 owner_address
   const contract = await tronWeb.contract(acceptorAbi, DEPOSIT_CONTRACT)
   const raw = await contract.balances(address).call()
   const value = BigInt(raw?._hex ?? raw?.toString?.() ?? '0')

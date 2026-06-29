@@ -312,6 +312,27 @@ function appendHashQuery(url, key, value) {
   return `${prefix}${hashPath}?${nextQuery}`
 }
 
+// 读取 URL 参数：uni-app H5 走 hash 路由，参数在 #/path?key=val 里，先查 hash query 再退到 search
+function getUrlParam(key) {
+  if (typeof window === 'undefined') return ''
+  const hash = window.location.hash || ''
+  const qIndex = hash.indexOf('?')
+  if (qIndex >= 0) {
+    const v = new URLSearchParams(hash.slice(qIndex + 1)).get(key)
+    if (v != null) return v
+  }
+  return new URLSearchParams(window.location.search || '').get(key) || ''
+}
+
+// 消费后从地址栏移除指定参数（不刷新页面），避免回跳标记残留被二次处理
+function stripUrlParam(key) {
+  if (typeof window === 'undefined' || !window.history?.replaceState) return
+  const href = window.location.href
+  const re = new RegExp(`([?&])${key}=[^&]*(&|$)`)
+  const cleaned = href.replace(re, (_m, p1, p2) => (p1 === '?' && p2 === '&' ? '?' : (p2 ? p1 : '')))
+  if (cleaned !== href) window.history.replaceState(null, '', cleaned)
+}
+
 // 获取当前页面 URL 作为支付回跳地址
 export function buildPaymentReturnUrl() {
   if (typeof window === 'undefined') return ''
@@ -363,6 +384,16 @@ export function disconnectWallet() {
 // 已是本地会员则直接跳过；命中则写本地缓存。供 App 启动 / 进页面调用，实现跨页自动判定
 export async function refreshMembershipByStoredAddress(minUsdt = 1) {
   if (typeof window === 'undefined') return false
+
+  // 方案1 地址带回：钱包浏览器验证后 redirect 回原页时把地址拼在 URL 上（walletAddress）。
+  // 落地即存入本地，再走下面的链上重验——所以伪造地址只能用「已真实付费的地址」冒充，影响有限。
+  const returnedAddress = getUrlParam('walletAddress')
+  if (returnedAddress) {
+    setConnectedWalletAddress(returnedAddress)
+    stripUrlParam('walletAddress')
+    console.log('[方案1] 已接住回跳带回的钱包地址:', returnedAddress)
+  }
+
   if (getLookMember()) return true // 已是会员，无需再查
   const address = getConnectedWalletAddress()
   if (!address) return false
@@ -548,15 +579,17 @@ export function launchWalletApp(walletId, walletInfo, returnUrl = '') {
 // 通过深链接唤起钱包 App，直接打开当前页面（用于「连接钱包验证会员」场景）
 // 与 launchWalletApp 的区别：跳转目标是当前页本身，而非 payment-confirm 中间页
 // 让用户在钱包 App 内置浏览器中打开当前 DApp 页，window.okxwallet 等注入即自动生效
-export function launchWalletAppToDapp(walletId) {
+export function launchWalletAppToDapp(walletId, returnUrl = '') {
   if (typeof window === 'undefined') {
     throw new Error(t('tronPay.h5Only'))
   }
   const meta = WALLET_META[walletId]
   if (!meta) throw new Error(t('tronPay.unsupportedWallet', { walletId }))
 
-  // 直接将当前页 URL 作为 dappUrl 嵌入 deep link
-  const dappUrl = window.location.href
+  // 将当前页 URL 作为 dappUrl 嵌入 deep link；并带上 walletReturn=原浏览器页URL，
+  // 供钱包内置浏览器验证后 redirect 回原浏览器（方案1 地址带回）。
+  let dappUrl = window.location.href
+  if (returnUrl) dappUrl = appendHashQuery(dappUrl, 'walletReturn', returnUrl)
   window.location.href = meta.buildDeepLink(dappUrl)
   return meta
 }
@@ -619,6 +652,14 @@ export async function openWalletForVerify(walletId, { t: $t, onSuccess, onFailed
       try {
         const isPaid = await verifyMembershipByWallet(walletId)
         onSuccess?.(isPaid)
+        // 方案1：本页若是从原浏览器 deep link 进钱包内置浏览器（URL 带 walletReturn），
+        // 验证拿到地址后 redirect 回原浏览器，并把 walletAddress 拼在 URL 上带回去。
+        const back = getUrlParam('walletReturn')
+        const addr = getConnectedWalletAddress()
+        if (back && addr) {
+          console.log('[方案1] 验证完成，回跳原浏览器并带回地址:', addr)
+          window.location.replace(appendHashQuery(decodeURIComponent(back), 'walletAddress', addr))
+        }
       } catch (verifyErr) {
         console.warn('[openWalletForVerify] 链上验证失败', verifyErr)
         onFailed?.(verifyErr)
@@ -627,9 +668,10 @@ export async function openWalletForVerify(walletId, { t: $t, onSuccess, onFailed
     }
 
     // 未注入：通过 deep link 唤起对应钱包 App，让用户在 App 内置浏览器打开当前页
+    // 带上 returnUrl（当前页），供钱包浏览器验证后按方案1 回跳带回地址
     // Not injected: launch the wallet App via deep link so the user opens this page inside the App's built-in browser
     uni.showToast({ title: $t('paymentWallet.openingWallet', { wallet: walletName }), icon: 'none' })
-    launchWalletAppToDapp(walletId)
+    launchWalletAppToDapp(walletId, buildPaymentReturnUrl())
 
     // 1500ms 后弹出下载提示弹窗（与 payment-wallet 保持一致）
     // Show a download prompt modal 1500ms after the deep link redirect
