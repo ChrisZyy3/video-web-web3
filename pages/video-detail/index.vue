@@ -29,7 +29,7 @@
 						:show-fullscreen-btn="!useIosNativeControls"
 						:show-progress="!useIosNativeControls"
 						:enable-progress-gesture="true"
-						preload="metadata"
+						:preload="detail.play_url ? 'metadata' : 'none'"
 						object-fit="contain"
 						@play="onVideoPlay"
 						@waiting="onVideoWaiting"
@@ -367,9 +367,17 @@ const onTimeUpdate = (e) => {
 // Callback when video file loading fails, displays alert toast
 const onVideoError = (e) => {
 	console.error('Video player source error:', e)
-	// Clear loading state
-	// 出错时隐去加载动画
+	// Clear loading state / 出错时隐去加载动画
 	videoLoading.value = false
+
+	// 若 play_url 尚未赋值（初始 src="" 时浏览器也会触发 error 事件），则跳过 toast
+	// 避免页面一进来就因空 src 弹出错误提示，误导用户
+	// If play_url is not yet set (browser fires error even on empty src), skip the toast
+	if (!detail.value.play_url) {
+		console.warn('[VideoError] play_url is empty, skipping toast (initial state)')
+		return
+	}
+
 	uni.showToast({
 		title: t('videoDetail.videoLoadError'),
 		icon: 'none',
