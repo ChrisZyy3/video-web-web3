@@ -382,6 +382,22 @@ const onVideoError = (e) => {
 		return
 	}
 
+	// 开发环境自动降级机制：如果直连 https://3xrs6.com 加载失败，自动转换为相对路径走本地 Vite 代理（电脑端 Clash 中转）
+	// Dev fallback: if direct domain connection fails, auto-fallback to local Vite proxy relative path
+	if (import.meta.env.MODE === 'development' && detail.value.play_url.startsWith('https://3xrs6.com')) {
+		const relativeUrl = detail.value.play_url.replace('https://3xrs6.com', '')
+		console.warn('[VideoError] 直连域名失败，自动切换至本地代理通道:', relativeUrl)
+		detail.value.play_url = relativeUrl
+		nextTick(() => {
+			getCtx().load()
+			// 若当前正在播放，则在新数据源载入后继续播放
+			if (playing.value) {
+				getCtx().play()
+			}
+		})
+		return
+	}
+
 	uni.showToast({
 		title: t('videoDetail.videoLoadError'),
 		icon: 'none',
