@@ -407,29 +407,10 @@ const onVideoError = (e) => {
 		return
 	}
 
-	// 暂时屏蔽自动降级代理，以便直接暴露绝对路径直连的真实报错
-	// Temporary bypass fallback to let mobile Chrome show the original absolute URL error
-	/*
-	if (import.meta.env.MODE === 'development' && detail.value.play_url.startsWith('https://3xrs6.com')) {
-		const relativeUrl = detail.value.play_url.replace('https://3xrs6.com', '')
-		console.warn('[VideoError] 直连域名失败，自动切换至本地代理通道:', relativeUrl)
-		detail.value.play_url = relativeUrl
-		nextTick(() => {
-			getCtx().load()
-			// 若当前正在播放，则在新数据源载入后继续播放
-			if (playing.value) {
-				getCtx().play()
-			}
-		})
-		return
-	}
-	*/
-
-	const errorMsgSuffix = errorCode ? ` (Code: ${errorCode}${errorMessage ? ', ' + errorMessage : ''})` : ''
 	uni.showToast({
-		title: t('videoDetail.videoLoadError') + errorMsgSuffix,
+		title: t('videoDetail.videoLoadError'),
 		icon: 'none',
-		duration: 6000
+		duration: 3000
 	})
 }
 

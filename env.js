@@ -10,10 +10,12 @@ const env = {
 // 媒体资源（视频、封面图）的后端域名
 // API 请求走 Vite proxy 可以用相对路径，但 <video src> 是浏览器直接加载的，必须是完整 URL
 const mediaEnv = {
-  // 开发环境：改为相对路径走本地 Vite 代理，使手机端可通过电脑端代理加载视频，解决域名直连限制问题
-  // 生产环境：与后端同域，留空走相对路径即可
-  dev: '',
-  prod: ''
+  // 视频/封面始终由 <video>/<image> 浏览器直连后端 Caddy（3xrs6.com），不走任何代理。
+  // 开发环境：不能走 Vite 代理——代理流为 HTTP/1.1 + connection:close、无 HTTP/2，H5 <video> 解封装报 DEMUXER_ERROR_COULD_NOT_OPEN。
+  // 生产环境：不能走 Vercel CDN（www.3xrs6.com）——Vercel 会缓存 Range 分片再回放，导致后续 Range 请求 416。
+  // 后端返回 ACAO:*，跨域直连 Caddy 可正常播放。
+  dev: 'https://3xrs6.com',
+  prod: 'https://3xrs6.com'
 }
 
 
