@@ -456,12 +456,12 @@ function requestTronAccountsFor(walletId) {
 // 按用户在选择弹窗中选定的钱包验证会员
 // 注入式（TronLink/TokenPocket/imToken/BitKeep/OKX）：请求授权 → getTronWeb 拿地址 → 读链
 // WalletConnect：动态加载 adapter，扫码/跳转连接 → 读链（重依赖仅此路加载）
-export async function verifyMembershipByWallet(walletId = '', { minUsdt = 1 } = {}) {
+export async function verifyMembershipByWallet(walletId = '', { minUsdt = 1, onUri } = {}) {
   if (typeof window === 'undefined') return false
   try {
     if (walletId === 'walletconnect') {
       const { connectAndReadMembershipWC } = await import('@/utils/wallet-adapters')
-      const paid = await connectAndReadMembershipWC(minUsdt)
+      const paid = await connectAndReadMembershipWC(minUsdt, { onUri })
       if (paid) setLookMember(true) // 命中即缓存到本地，二者其一为真即会员
       return paid
     }
@@ -582,14 +582,20 @@ export async function openWalletForVerify(walletId, { t: $t, onSuccess, onFailed
 
   // WalletConnect 不是注入式钱包：没有 window 注入、WALLET_META 里也无 deep link，
   // 走注入检测会 2.5s 超时、再 launchWalletAppToDapp 抛 unsupportedWallet。
-  // 直接走 adapter 扫码/深链连接读链。不在此 showLoading：adapter.connect 会弹自己的二维码弹窗。
+  // loading 只覆盖「点击 → 动态加载重 adapter → 二维码弹出」的死区，onUri 触发即关闭，
+  // 避免 uni 遮罩与 adapter 自带的二维码弹窗争显示。
   if (walletId === 'walletconnect') {
+    uni.showLoading({ title: $t('paymentWallet.connectingWallet'), mask: true })
+    let loadingDone = false
+    const stopLoading = () => { if (!loadingDone) { loadingDone = true; uni.hideLoading() } }
     try {
-      const isPaid = await verifyMembershipByWallet('walletconnect')
+      const isPaid = await verifyMembershipByWallet('walletconnect', { onUri: stopLoading })
       onSuccess?.(isPaid)
     } catch (err) {
       console.warn('[openWalletForVerify] WalletConnect 验证失败', err)
       onFailed?.(err)
+    } finally {
+      stopLoading()
     }
     return
   }

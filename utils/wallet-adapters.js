@@ -68,10 +68,11 @@ export async function readDepositBalanceByAddress(address, minUsdt = 1) {
 }
 
 // WalletConnect：连接拿地址（扫码/跳转）后读链上 balances，判断是否达到 VIP 门槛
-export async function connectAndReadMembershipWC(minUsdt = 1) {
+export async function connectAndReadMembershipWC(minUsdt = 1, { onUri } = {}) {
   const adapter = await getWcAdapter()
   if (!adapter.address) {
-    await adapter.connect() // 弹二维码 / 跳转钱包授权
+    // onUri 在 WC URI 生成（二维码即将弹出）时触发，调用方用它关掉前置 loading
+    await adapter.connect(onUri ? { onUri } : undefined) // 弹二维码 / 跳转钱包授权
   }
   const address = adapter.address
   if (!address) return false
