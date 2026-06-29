@@ -16,8 +16,10 @@ async function getWcAdapter() {
         metadata: {
           name: 'Media',
           description: 'Video membership verification',
-          url: 'https://www.3xrs6.com',
-          icons: ['https://www.3xrs6.com/static/logo.png']
+          // 跟随当前域名：WalletConnect 的 verify 会拿 url 与实际连接域名比对，
+          // 写死会导致 vercel preview / 多域名下部分钱包拒连。SSR 兜底回原域名。
+          url: typeof window !== 'undefined' ? window.location.origin : 'https://www.3xrs6.com',
+          icons: [(typeof window !== 'undefined' ? window.location.origin : 'https://www.3xrs6.com') + '/static/logo.png']
         }
       }
     })
