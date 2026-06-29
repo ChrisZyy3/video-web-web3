@@ -99,7 +99,7 @@ import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { isFavorite, toggleFavorite } from '@/utils/favorites'
 import { getLookVideo, setLookVideo, getPlayCount, incrementPlayCount } from '@/utils/look-video'
 import { getLookMember, setLookMember } from '@/utils/look-member'
-import { refreshMembershipByStoredAddress, verifyMembershipByWallet, getConnectedWalletAddress } from '@/utils/tron-pay'
+import { refreshMembershipByStoredAddress, verifyMembershipByWallet, getConnectedWalletAddress, openWalletForVerify } from '@/utils/tron-pay'
 import memberSheet from '@/components/member-sheet/index'
 import memberIntro from '@/components/member-intro/index'
 import walletSelect from '@/components/wallet-select/index'
@@ -161,31 +161,35 @@ const handleVerifyMember = () => {
 	showWalletSelect.value = true
 }
 
-// 用户在选择弹窗里选定钱包：连接该钱包读取链上 balances，达标则解锁并放行
+// 用户在选择弹窗里选定钱包：使用 openWalletForVerify 统一处理注入检测、loading、deep link 唤起、下载弹窗
 const handleWalletSelected = async (walletId) => {
-	// 关闭选择弹窗，不加全屏 loading 蒙层（会盖住 WalletConnect 的二维码弹窗）
-	// 由钱包自身 UI（扩展授权 / WC 二维码）接管交互
+	// 关闭选择弹窗
 	showWalletSelect.value = false
-	try {
-		const member = await verifyMembershipByWallet(walletId)
-		connectedAddress.value = getConnectedWalletAddress() // 连接后刷新，隐藏验证按钮
-		if (member) {
-			showMemberIntro.value = false
-			uni.showToast({ title: t('memberIntro.verifySuccess'), icon: 'success' })
-			// Play only if video URL is loaded to avoid NotSupportedError
-			// 仅在视频播放源加载完成后才调用播放，避免抛出 NotSupportedError 错误
-			if (detail.value.play_url) {
-				// Safely call the play method
-				// 安全调用播放接口
-				getCtx().play()
+	// 立即关闭 VIP 引导弹窗，避免验证过程中弹窗还挂在背后
+	showMemberIntro.value = false
+	// openWalletForVerify 会自行进行：
+	//   • showLoading(正在连接钱包...) → 检测钱包注入（2500ms）
+	//   • 已注入 → 读链验证会员 → 回调 onSuccess / onFailed
+	//   • 未注入 → toast + deep link 唤起 App → 1500ms 后弹下载提示弹窗
+	await openWalletForVerify(walletId, {
+		t,
+		// 验证成功回调：根据链上余额判定是否为 VIP
+		onSuccess: (isPaid) => {
+			connectedAddress.value = getConnectedWalletAddress() // 刷新已连接地址，隐藏验证按钮
+			if (isPaid) {
+				showMemberIntro.value = false
+				uni.showToast({ title: t('memberIntro.verifySuccess'), icon: 'success' })
+				// 仅在视频播放源加载完成后才调用播放，避免抛出 NotSupportedError
+				if (detail.value.play_url) getCtx().play()
+			} else {
+				uni.showToast({ title: t('memberIntro.verifyFailed'), icon: 'none' })
 			}
-		} else {
-			uni.showToast({ title: t('memberIntro.verifyFailed'), icon: 'none' })
+		},
+		// 验证出错回调：展示错误消息
+		onFailed: (error) => {
+			uni.showToast({ title: error?.message || t('memberIntro.verifyFailed'), icon: 'none', duration: 3000 })
 		}
-	} catch (error) {
-		console.warn('会员验证失败', error)
-		uni.showToast({ title: error?.message || t('memberIntro.verifyFailed'), icon: 'none', duration: 3000 })
-	}
+	})
 }
 
 // Helper to determine if the play limit is exceeded based on total play counts

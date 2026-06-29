@@ -178,35 +178,59 @@ export function getTronWeb(walletId = '') {
   return window.okxwallet?.tronLink?.tronWeb || window.bitkeepTronWeb || window.tpTronWeb || null
 }
 
+// 带超时的 Promise 包装器，防止第三方 Promise 挂起导致程序卡死
+// A Promise wrapper with timeout to prevent third-party Promises from hanging indefinitely
+export function promiseWithTimeout(promise, ms, timeoutErrorMsg = 'timeout') {
+  let timer = null
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(timeoutErrorMsg)), ms)
+  })
+  return Promise.race([
+    promise.then((res) => {
+      clearTimeout(timer)
+      return res
+    }, (err) => {
+      clearTimeout(timer)
+      throw err
+    }),
+    timeoutPromise
+  ])
+}
+
 // 等待钱包注入 tronWeb，必要时请求账户授权
-export async function waitForTronWeb(walletId = '', timeout = 8000) {
+export async function waitForTronWeb(walletId = '', timeout = 8000, options = {}) {
   const start = Date.now()
   const walletMeta = WALLET_META[walletId] || WALLET_META.tokenpocket
   const realTimeout = timeout
+  let hasRequested = false
 
   while (Date.now() - start < realTimeout) {
     const tronWeb = getTronWeb(walletId)
     if (tronWeb) {
+      // 如果仅检测是否注入就绪，不触发授权，则直接返回
+      // If we only check for injection and don't require authorization, return immediately
+      if (options.skipAuthorize) {
+        return tronWeb
+      }
+
       // imToken 不执行 wait 逻辑
       if (walletMeta.hasWaitMethod && typeof tronWeb.wait === 'function' && walletId !== 'imtoken') {
         try {
-          await tronWeb.wait()
+          // 限制 wait 最多等待 2 秒，防止其挂起
+          await promiseWithTimeout(tronWeb.wait(), 2000)
         } catch (e) {
-          console.warn(`${walletMeta.name} wait 执行失败`, e)
+          console.warn(`${walletMeta.name} wait 执行失败或超时`, e)
         }
       }
 
-      // 仅需要主动授权的钱包发起账户请求
-      if (walletMeta.needRequestAccounts && !tronWeb.defaultAddress?.base58) {
+      // 仅需要主动授权的钱包发起账户请求，且同一个周期内仅请求一次，防止频繁弹窗
+      if (walletMeta.needRequestAccounts && !tronWeb.defaultAddress?.base58 && !hasRequested) {
+        hasRequested = true
         try {
-          if (window.tronLink?.request) {
-            await window.tronLink.request({ method: 'tron_requestAccounts' })
-          }
-          if (window.bitkeep?.request) {
-            await window.bitkeep.request({ method: 'tron_requestAccounts' })
-          }
-          if (window.okxwallet?.tronLink?.request) {
-            await window.okxwallet.tronLink.request({ method: 'tron_requestAccounts' })
+          const reqPromise = requestTronAccountsFor(walletId)
+          if (reqPromise) {
+            // 限制授权弹窗最多等待 20 秒，超时则继续往下（由用户在钱包中决定）
+            await promiseWithTimeout(reqPromise, 20000)
           }
         } catch (e) {
           console.warn(`${walletMeta.name} 授权失败`, e)
@@ -263,7 +287,7 @@ export function parseWalletInfo(options = {}) {
 // 检测钱包浏览器是否已就绪（tronWeb 可用）
 export async function isWalletBrowserReady(walletId = '', timeout = 2500) {
   try {
-    await waitForTronWeb(walletId, timeout)
+    await waitForTronWeb(walletId, timeout, { skipAuthorize: true })
     return true
   } catch {
     return false
@@ -443,18 +467,39 @@ export async function verifyMembershipByWallet(walletId = '', { minUsdt = 1 } = 
     }
 
     // 注入式：仅向所选钱包请求授权，再轮询其注入的地址
-    try { await requestTronAccountsFor(walletId) } catch (e) { /* 未安装/拒绝 → 下方按拿不到地址处理 */ }
-    let tronWeb = null
+    let authorized = false
+    try {
+      const reqPromise = requestTronAccountsFor(walletId)
+      if (reqPromise) {
+        await promiseWithTimeout(reqPromise, 15000)
+        authorized = true
+      } else {
+        // 无需额外授权或 provider 不支持 request
+        authorized = true
+      }
+    } catch (e) {
+      console.warn('请求授权失败或超时', e)
+    }
+
+    // 如果请求授权失败或超时，且当前依然拿不到默认地址，直接判定为未连接，避免 3 秒无用轮询
+    let tronWeb = getTronWeb(walletId)
+    if (!authorized && !tronWeb?.defaultAddress?.base58) {
+      return false
+    }
+
     for (let i = 0; i < 12; i++) {
       tronWeb = getTronWeb(walletId)
       if (tronWeb?.defaultAddress?.base58) break
       await new Promise((resolve) => setTimeout(resolve, 250))
     }
     const address = tronWeb?.defaultAddress?.base58
+    // 普通浏览器中该钱包未注入（未安装扩展 / 未在该钱包内置浏览器中打开），返回 false
+    // 调用方应在调用本函数前先通过 isWalletBrowserReady 判断，未注入时改用 openWalletForVerify
     if (!address) return false
     setConnectedWalletAddress(address) // 记录已连接地址，供 profile 展示
     return await readDepositMembership(tronWeb, address, minUsdt) // 命中内部已写本地缓存
   } catch (error) {
+    // 其他运行时错误（链上读取失败 / 网络超时等）走 warn + return false
     console.warn('指定钱包会员校验失败', error)
     return false
   }
@@ -498,6 +543,99 @@ export function launchWalletApp(walletId, walletInfo, returnUrl = '') {
   const url = getPaymentConfirmUrl(info, returnUrl)
   window.location.href = meta.buildDeepLink(url)
   return meta
+}
+
+// 通过深链接唤起钱包 App，直接打开当前页面（用于「连接钱包验证会员」场景）
+// 与 launchWalletApp 的区别：跳转目标是当前页本身，而非 payment-confirm 中间页
+// 让用户在钱包 App 内置浏览器中打开当前 DApp 页，window.okxwallet 等注入即自动生效
+export function launchWalletAppToDapp(walletId) {
+  if (typeof window === 'undefined') {
+    throw new Error(t('tronPay.h5Only'))
+  }
+  const meta = WALLET_META[walletId]
+  if (!meta) throw new Error(t('tronPay.unsupportedWallet', { walletId }))
+
+  // 直接将当前页 URL 作为 dappUrl 嵌入 deep link
+  const dappUrl = window.location.href
+  window.location.href = meta.buildDeepLink(dappUrl)
+  return meta
+}
+
+/**
+ * 「连接钱包验证会员」的完整入口函数（对标 payment-wallet 页的 handlePay 逻辑）
+ *
+ * 流程：
+ *  1. showLoading
+ *  2. isWalletBrowserReady(2500ms) 检测钱包是否已注入
+ *  3a. 已注入 → verifyMembershipByWallet 读链 → 回调 onSuccess(isPaid) / onFailed(error)
+ *  3b. 未注入 → launchWalletAppToDapp 跳转 deep link 唤起 App
+ *             → 延迟 1500ms 弹 showModal 提示「是否下载该钱包」
+ *
+ * @param {string} walletId  钱包 ID（tronlink / tokenpocket / imtoken / bitkeep / okx）
+ * @param {object} options
+ * @param {function} options.t           vue-i18n 的 t 函数（用于翻译提示文案）
+ * @param {function} [options.onSuccess] 验证成功回调，参数 isPaid(boolean)
+ * @param {function} [options.onFailed]  验证失败/出错回调，参数 error
+ */
+export async function openWalletForVerify(walletId, { t: $t, onSuccess, onFailed } = {}) {
+  if (typeof window === 'undefined') return
+
+  const meta = WALLET_META[walletId]
+  const walletName = meta?.name || walletId
+
+  // 第一步：展示连接中 loading
+  // Step 1: Show connecting loading overlay
+  uni.showLoading({ title: $t('paymentWallet.connectingWallet'), mask: true })
+
+  try {
+    // 第二步：检测钱包是否已在当前浏览器环境中注入（超时 2500ms）
+    // Step 2: Detect if wallet is injected in the current browser environment (timeout 2500ms)
+    const ready = await isWalletBrowserReady(walletId, 2500)
+    uni.hideLoading()
+
+    if (ready) {
+      // 已注入：直接读链验证会员身份
+      // Injected: proceed with on-chain membership verification
+      try {
+        const isPaid = await verifyMembershipByWallet(walletId)
+        onSuccess?.(isPaid)
+      } catch (verifyErr) {
+        console.warn('[openWalletForVerify] 链上验证失败', verifyErr)
+        onFailed?.(verifyErr)
+      }
+      return
+    }
+
+    // 未注入：通过 deep link 唤起对应钱包 App，让用户在 App 内置浏览器打开当前页
+    // Not injected: launch the wallet App via deep link so the user opens this page inside the App's built-in browser
+    uni.showToast({ title: $t('paymentWallet.openingWallet', { wallet: walletName }), icon: 'none' })
+    launchWalletAppToDapp(walletId)
+
+    // 1500ms 后弹出下载提示弹窗（与 payment-wallet 保持一致）
+    // Show a download prompt modal 1500ms after the deep link redirect
+    setTimeout(() => {
+      uni.showModal({
+        title: $t('paymentWallet.walletNotOpened', { wallet: walletName }),
+        content: $t('paymentWallet.downloadPrompt'),
+        confirmText: $t('paymentWallet.download'),
+        cancelText: $t('paymentWallet.gotIt'),
+        success: (res) => {
+          // #ifdef H5
+          // 用户选择「下载」：在新标签页打开钱包官网
+          // User clicked 'Download': open the wallet's official download page in a new tab
+          if (res.confirm && meta?.download && typeof window !== 'undefined') {
+            window.open(meta.download, '_blank')
+          }
+          // #endif
+        }
+      })
+    }, 1500)
+
+  } catch (error) {
+    uni.hideLoading()
+    console.warn('[openWalletForVerify] 打开钱包失败', error)
+    onFailed?.(error)
+  }
 }
 
 // 打开钱包：已连接则直接返回，否则唤起 App

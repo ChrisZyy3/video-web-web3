@@ -112,7 +112,7 @@ import { useI18n } from 'vue-i18n'
 import tabbar from '@/components/tabbar/index'
 import memberSheet from '@/components/member-sheet/index'
 import walletSelect from '@/components/wallet-select/index'
-import { verifyMembershipByWallet, getConnectedWalletAddress, formatAddressShort, disconnectWallet } from '@/utils/tron-pay'
+import { verifyMembershipByWallet, getConnectedWalletAddress, formatAddressShort, disconnectWallet, openWalletForVerify } from '@/utils/tron-pay'
 import { getLookMember } from '@/utils/look-member'
 import { getMobilePageLayout, getTabbarInsetPx, bindViewportResize } from '@/utils/h5-compat'
 import { onShow } from '@dcloudio/uni-app'
@@ -210,46 +210,34 @@ const handleDisconnect = () => {
 	uni.showToast({ title: t('mine.disconnected'), icon: 'none' })
 }
 
-// 选定钱包后连接并校验 VIP 身份（读取链上 balances）
-// Connect wallet and verify VIP status (reads on-chain balances) after selecting a wallet
+// 选定钱包后连接并校验 VIP 身份：使用 openWalletForVerify 统一处理注入检测、loading、deep link 唤起、下载弹窗
+// Connect wallet and verify VIP status via openWalletForVerify (handles loading, deep link, download prompt)
 const handleWalletSelected = async (walletId) => {
 	showWalletSelect.value = false
-	
-	// 在连接及链上查询期间弹出 loading 加载框，提升用户体验
-	// Show loading overlay during connection and on-chain verification to improve UX
-	uni.showLoading({
-		title: t('paymentWallet.connectingWallet') || 'Connecting...',
-		mask: true
+
+	// openWalletForVerify 会自行进行：
+	//   • showLoading(正在连接钱包...) → 检测钱包注入（2500ms）
+	//   • 已注入 → 读链验证会员 → 回调 onSuccess / onFailed
+	//   • 未注入 → toast + deep link 唤起 App → 1500ms 后弹下载提示弹窗
+	await openWalletForVerify(walletId, {
+		t,
+		onSuccess: (isPaid) => {
+			// 验证结束，刷新页面的本地连接与 VIP 激活状态
+			// Verification completed, refresh local connection and VIP active state
+			refreshStatus()
+			uni.showToast({
+				title: isPaid ? t('memberIntro.verifySuccess') : t('memberIntro.verifyFailed'),
+				icon: isPaid ? 'success' : 'none',
+				duration: isPaid ? 2000 : 3000
+			})
+		},
+		onFailed: (error) => {
+			console.warn('连接钱包并验证 VIP 失败', error)
+			uni.showToast({ title: error?.message || t('memberIntro.verifyFailed'), icon: 'none', duration: 3000 })
+		}
 	})
-	
-	try {
-		// 校验当前连接的钱包是否符合 VIP 要求 (链上充值余额值 >= 门槛值)
-		// Verify if current connected wallet meets VIP requirements (on-chain balance >= threshold)
-		const vip = await verifyMembershipByWallet(walletId)
-		
-		// 刷新页面的本地连接与 VIP 激活状态
-		// Refresh local connection status and VIP active state on the page
-		refreshStatus() 
-		
-		// 验证结束，隐藏 loading 框
-		// Verification completed, hide the loading overlay
-		uni.hideLoading()
-		
-		// 显示成功或失败的气泡提示
-		// Show success or failure toast notification
-		uni.showToast({
-			title: vip ? t('memberIntro.verifySuccess') : t('memberIntro.verifyFailed'),
-			icon: vip ? 'success' : 'none',
-			duration: vip ? 2000 : 3000
-		})
-	} catch (error) {
-		// 隐藏 loading 框
-		// Hide loading overlay on error
-		uni.hideLoading()
-		console.warn('连接钱包并验证 VIP 失败', error)
-		uni.showToast({ title: error?.message || t('memberIntro.verifyFailed'), icon: 'none', duration: 3000 })
-	}
 }
+
 
 const handleLogin = () => {
 	uni.navigateTo({ url: '/pages/login/index' })

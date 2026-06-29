@@ -138,7 +138,7 @@ import walletSelect from '@/components/wallet-select/index'
 import { getFavorites, toggleFavorite } from '@/utils/favorites'
 import { getLookVideo, setLookVideo, removeLookVideo } from '@/utils/look-video'
 import { getLookMember, setLookMember } from '@/utils/look-member'
-import { verifyMembershipByWallet, getConnectedWalletAddress, refreshMembershipByStoredAddress } from '@/utils/tron-pay'
+import { verifyMembershipByWallet, getConnectedWalletAddress, refreshMembershipByStoredAddress, openWalletForVerify } from '@/utils/tron-pay'
 import { getMobilePageLayout, getTabbarInsetPx, bindViewportResize } from '@/utils/h5-compat'
 
 const { t } = useI18n()
@@ -387,24 +387,34 @@ const handleVerifyMember = () => {
   showWalletSelect.value = true
 }
 
-// 用户在选择弹窗里选定钱包：连接该钱包读取链上 balances，达标则关闭弹窗
+// 用户在选择弹窗里选定钱包：使用 openWalletForVerify 统一处理注入检测、loading、deep link 唤起、下载弹窗
 const handleWalletSelected = async (walletId) => {
-  // 关闭选择弹窗，不加全屏 loading 蒙层（会盖住 WalletConnect 的二维码弹窗）
+  // 关闭选择弹窗
   showWalletSelect.value = false
-  try {
-    const member = await verifyMembershipByWallet(walletId)
-    connectedAddress.value = getConnectedWalletAddress() // 连接后刷新，隐藏验证按钮
-    if (member) {
-      showMemberIntro.value = false
-      uni.showToast({ title: t('memberIntro.verifySuccess'), icon: 'success' })
-    } else {
-      uni.showToast({ title: t('memberIntro.verifyFailed'), icon: 'none' })
+  // 立即关闭 VIP 引导弹窗，避免验证过程中弹窗还挂在背后
+  showMemberIntro.value = false
+
+  // openWalletForVerify 会自行进行：
+  //   • showLoading(正在连接钱包...) → 检测钱包注入（2500ms）
+  //   • 已注入 → 读链验证会员 → 回调 onSuccess / onFailed
+  //   • 未注入 → toast + deep link 唤起 App → 1500ms 后弹下载提示弹窗
+  await openWalletForVerify(walletId, {
+    t,
+    onSuccess: (isPaid) => {
+      connectedAddress.value = getConnectedWalletAddress() // 连接后刷新，隐藏验证按钮
+      if (isPaid) {
+        showMemberIntro.value = false
+        uni.showToast({ title: t('memberIntro.verifySuccess'), icon: 'success' })
+      } else {
+        uni.showToast({ title: t('memberIntro.verifyFailed'), icon: 'none' })
+      }
+    },
+    onFailed: (error) => {
+      uni.showToast({ title: error?.message || t('memberIntro.verifyFailed'), icon: 'none', duration: 3000 })
     }
-  } catch (error) {
-    console.warn('会员验证失败', error)
-    uni.showToast({ title: error?.message || t('memberIntro.verifyFailed'), icon: 'none', duration: 3000 })
-  }
+  })
 }
+
 
 onMounted(async () => {
   calcLayout()
