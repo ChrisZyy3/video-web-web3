@@ -106,10 +106,15 @@ import walletSelect from '@/components/wallet-select/index'
 import { calcFullScrollPageLayout, bindViewportResize, shouldUseIosNativeVideoControls, patchNativeVideoControlsForIOS } from '@/utils/h5-compat'
 import { useVideoFirstFramePoster } from '@/utils/use-video-poster'
 import { applyNativeVideoPoster } from '@/utils/video-poster'
+// 媒体资源（视频 src、封面图）的基础 URL
+// <video src> 由浏览器直接加载，不经过 Vite proxy，相对路径会指向 localhost 导致 NotSupportedError
+import { mediaBaseUrl } from '@/env'
 
 const { t } = useI18n()
 const { proxy } = getCurrentInstance()
 const baseUrl = proxy.$baseUrl
+// MEDIA_BASE 用于拼接视频/封面绝对 URL，始终指向后端服务器（开发环境为 https://3xrs6.com）
+const MEDIA_BASE = mediaBaseUrl
 
 const VIDEO_ID = 'detailVideo'
 const HEART_PATH = '<path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>'
@@ -308,11 +313,11 @@ const loadDetail = async (id) => {
 		// Map the properties and build the absolute playback URL / 映射返回的数据并构建绝对播放路径
 		detail.value = {
 			...res, // Spread video object properties / 展开后端返回的视频对象属性 (id, title, description, size, created_at, etc.)
-			// Prepend base URL to the play_url relative path / 拼接基础 URL 和 play_url 的相对路径
-			play_url: res.play_url ? (res.play_url.startsWith('http') ? res.play_url : baseUrl + res.play_url) : '',
-			// Normalize cover_url (relative) into an absolute cover address; empty string when no cover
-			// 将相对路径的 cover_url 拼接为绝对封面地址，无封面时为空字符串（前端回退首帧/占位图）
-			cover: res.cover_url ? (res.cover_url.startsWith('http') ? res.cover_url : baseUrl + res.cover_url) : ''
+			// 拼接媒体资源绝对 URL（使用 MEDIA_BASE 而非 baseUrl）
+			// 原因：<video src> 由浏览器直接请求，不经过 Vite proxy；若用相对路径会指向 localhost 报 NotSupportedError
+			play_url: res.play_url ? (res.play_url.startsWith('http') ? res.play_url : MEDIA_BASE + res.play_url) : '',
+			// 封面图同理，用 MEDIA_BASE 拼接绝对路径 / Cover uses MEDIA_BASE for absolute URL
+			cover: res.cover_url ? (res.cover_url.startsWith('http') ? res.cover_url : MEDIA_BASE + res.cover_url) : ''
 		}
 		
 		// Check if the current video is stored in favorites / 查询当前视频是否已被用户收藏
