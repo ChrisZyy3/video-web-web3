@@ -87,6 +87,13 @@ export async function connectAndReadMembershipWC(minUsdt = 1, { onReady } = {}) 
     onReady?.()
     try {
       console.log(`${WC} 调用 adapter.connect()，等待弹窗/钱包授权...`)
+      // 诊断：connect 是 await 阻塞的，用 setTimeout 旁路探测 AppKit 弹窗 DOM 是否真渲染出来
+      setTimeout(() => {
+        const el = document.querySelector('w3m-modal, wcm-modal, appkit-modal, w3m-router')
+        const customEls = [...document.body.children].map(n => n.tagName.toLowerCase()).filter(t => t.includes('-'))
+        console.log(`${WC} 弹窗DOM探测:`, el ? `${el.tagName} display=${getComputedStyle(el).display} visible=${el.offsetParent !== null}` : '❌未找到弹窗元素')
+        console.log(`${WC} body下自定义元素:`, customEls.join(', ') || '(无)')
+      }, 1800)
       const connectRet = await adapter.connect() // adapter 自带 AppKit 弹窗：二维码 / 跳转钱包授权
       console.log(`${WC} connect() 返回:`, connectRet, '| 连接后地址:', adapter.address || null)
     } catch (e) {
