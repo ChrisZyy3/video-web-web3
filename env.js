@@ -10,9 +10,9 @@ const env = {
 // 媒体资源（视频、封面图）的后端域名
 // API 请求走 Vite proxy 可以用相对路径，但 <video src> 是浏览器直接加载的，必须是完整 URL
 const mediaEnv = {
-  // 开发环境：媒体文件始终指向后端服务器（不能走 localhost，否则 video 元素报 NotSupportedError）
-  dev: 'https://3xrs6.com',
+  // 开发环境：改为相对路径走本地 Vite 代理，使手机端可通过电脑端代理加载视频，解决域名直连限制问题
   // 生产环境：与后端同域，留空走相对路径即可
+  dev: '',
   prod: ''
 }
 
