@@ -339,6 +339,46 @@ export function buildPaymentReturnUrl() {
   return window.location.href
 }
 
+// 是否运行在钱包 App 的内置浏览器中（存在注入的 tronWeb 即认为是）
+export function isInjectedWalletBrowser() {
+  if (typeof window === 'undefined') return false
+  return !!(window.tronLink?.tronWeb || window.tronWeb || window.okxwallet?.tronLink?.tronWeb || window.bitkeepTronWeb || window.tpTronWeb)
+}
+
+// 构建「在外部浏览器打开」用的 URL：首页 + walletAddress（放 search，避开 intent:// 与 hash 路由的 # 冲突）
+// 外部浏览器落地后由 refreshMembershipByStoredAddress 消费 walletAddress → 存地址 → 链上重验 VIP
+export function buildExternalBrowserUrl() {
+  if (typeof window === 'undefined') return ''
+  const base = window.location.origin + '/'
+  const addr = getConnectedWalletAddress()
+  return addr ? `${base}?walletAddress=${encodeURIComponent(addr)}` : base
+}
+
+// 从钱包内置浏览器唤起外部浏览器打开 targetUrl
+// Android：intent:// 不指定包名 → 系统默认浏览器；iOS/其他：尝试 _blank（部分钱包会交给系统浏览器），失败则复制链接兜底
+export function openInExternalBrowser(targetUrl) {
+  if (typeof window === 'undefined' || !targetUrl) return
+  const ua = navigator.userAgent || ''
+  if (/android/i.test(ua)) {
+    const rest = targetUrl.replace(/^https?:\/\//, '')
+    window.location.href = `intent://${rest}#Intent;scheme=https;S.browser_fallback_url=${encodeURIComponent(targetUrl)};end`
+    return
+  }
+  // iOS/其他：webview 无通用「打开默认浏览器」API，尽力而为
+  const win = window.open(targetUrl, '_blank')
+  if (!win) {
+    // 被钱包内置浏览器拦截：复制链接，提示用户手动到浏览器粘贴打开
+    uni.setClipboardData({
+      data: targetUrl,
+      success: () => uni.showModal({
+        title: t('mine.browserPromptTitle'),
+        content: t('mine.browserLinkCopied'),
+        showCancel: false
+      })
+    })
+  }
+}
+
 // 解析并解码回跳 URL 参数
 export function parsePaymentReturnUrl(options = {}) {
   let returnUrl = options.returnUrl || ''
