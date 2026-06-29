@@ -382,6 +382,24 @@ const onVideoError = (e) => {
 		return
 	}
 
+	// 尝试获取原生 video 元素的报错详情，用于手机端精确排查
+	// Try to get native video element's error details for precise debugging
+	let errorCode = ''
+	let errorMessage = ''
+	// #ifdef H5
+	try {
+		const videoEl = document.getElementById('detailVideo')?.querySelector('video') || document.getElementById('detailVideo')
+		if (videoEl?.error) {
+			errorCode = videoEl.error.code
+			errorMessage = videoEl.error.message || ''
+		}
+	} catch (err) {
+		console.warn('获取原生 video error 失败', err)
+	}
+	// #endif
+
+	console.error('[VideoError] 详细报错信息:', { errorCode, errorMessage, currentSrc: detail.value.play_url })
+
 	// 开发环境自动降级机制：如果直连 https://3xrs6.com 加载失败，自动转换为相对路径走本地 Vite 代理（电脑端 Clash 中转）
 	// Dev fallback: if direct domain connection fails, auto-fallback to local Vite proxy relative path
 	if (import.meta.env.MODE === 'development' && detail.value.play_url.startsWith('https://3xrs6.com')) {
@@ -398,10 +416,11 @@ const onVideoError = (e) => {
 		return
 	}
 
+	const errorMsgSuffix = errorCode ? ` (Code: ${errorCode}${errorMessage ? ', ' + errorMessage : ''})` : ''
 	uni.showToast({
-		title: t('videoDetail.videoLoadError'),
+		title: t('videoDetail.videoLoadError') + errorMsgSuffix,
 		icon: 'none',
-		duration: 3000
+		duration: 6000
 	})
 }
 
