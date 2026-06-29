@@ -580,6 +580,20 @@ export function launchWalletAppToDapp(walletId) {
 export async function openWalletForVerify(walletId, { t: $t, onSuccess, onFailed } = {}) {
   if (typeof window === 'undefined') return
 
+  // WalletConnect 不是注入式钱包：没有 window 注入、WALLET_META 里也无 deep link，
+  // 走注入检测会 2.5s 超时、再 launchWalletAppToDapp 抛 unsupportedWallet。
+  // 直接走 adapter 扫码/深链连接读链。不在此 showLoading：adapter.connect 会弹自己的二维码弹窗。
+  if (walletId === 'walletconnect') {
+    try {
+      const isPaid = await verifyMembershipByWallet('walletconnect')
+      onSuccess?.(isPaid)
+    } catch (err) {
+      console.warn('[openWalletForVerify] WalletConnect 验证失败', err)
+      onFailed?.(err)
+    }
+    return
+  }
+
   const meta = WALLET_META[walletId]
   const walletName = meta?.name || walletId
 
