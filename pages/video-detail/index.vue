@@ -400,6 +400,13 @@ const onVideoError = (e) => {
 
 	console.error('[VideoError] 详细报错信息:', { errorCode, errorMessage, currentSrc: detail.value.play_url })
 
+	// 过滤 Code 1 (MEDIA_ERR_ABORTED) —— 浏览器因切换视频源正常中断加载的行为，不属于真实播放错误，直接忽略
+	// Filter Code 1 (MEDIA_ERR_ABORTED) - Browser aborting load due to source change is normal, ignore
+	if (Number(errorCode) === 1) {
+		console.log('[VideoError] 正常中止加载（视频源切换），忽略此事件')
+		return
+	}
+
 	// 开发环境自动降级机制：如果直连 https://3xrs6.com 加载失败，自动转换为相对路径走本地 Vite 代理（电脑端 Clash 中转）
 	// Dev fallback: if direct domain connection fails, auto-fallback to local Vite proxy relative path
 	if (import.meta.env.MODE === 'development' && detail.value.play_url.startsWith('https://3xrs6.com')) {
