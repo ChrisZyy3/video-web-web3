@@ -193,12 +193,14 @@ const THROTTLED_SHOW_REFRESH_GAP = 30000
 let lastBalanceRefreshAt = 0
 
 // 【新增】警告信息有效性（用于禁用支付按钮）
+// Safety check validity computed property (used to disable the payment button)
 const warningValid = computed(() => {
   const check = validatePaymentReadiness({
-    feeMode: feeMode.value,
-    usdt: wallet.value.usdt,
-    trx: wallet.value.trx,
-    orderTotal: order.value.total
+    feeMode: feeMode.value,             // 当前选择的费率模式：资源或直接燃烧 / Current fee payment mode
+    usdt: wallet.value.usdt,            // 钱包当前 USDT 余额 / Current USDT balance in wallet
+    trx: wallet.value.trx,              // 钱包当前 TRX 余额 / Current TRX balance in wallet
+    orderTotal: order.value.total,      // 订单所需支付的 USDT 总额 / USDT amount due for the order
+    minerFeeTrx: minerFeeTrx.value      // 传入当前预估消耗的 TRX 数值以供校验 / Pass estimated TRX fee for validation
   })
   return check.ok
 })
@@ -287,10 +289,14 @@ const loadFeeMode = () => {
   feeMode.value = FEE_MODE.RESOURCE
 }
 
-// 选择支付方式（展示矿工费固定为燃烧 TRX 估算，切换不重新拉取）
-const selectFeeMode = (mode) => {
-  if (feeMode.value === mode) return
-  feeMode.value = mode
+// 选择支付方式（选择后重新刷新链上余额与对应的网络费预估）
+// Select payment network fee mode (re-estimate and refresh balances immediately on selection)
+const selectFeeMode = async (mode) => {
+  if (feeMode.value === mode) return  // 如果点击的是当前已选中的模式，直接返回 / If already active, do nothing
+  feeMode.value = mode                // 更新当前网络费支付模式 / Update current active fee mode
+  // 切换选项卡后强制静默刷新其余额和网络费预估，以保持数据最新并更新 UI
+  // Force fetch balance and miner fee estimate for the newly selected mode
+  await refreshBalances({ force: true, silent: true })
 }
 
 // 刷新余额与矿工费（合并为单次链上请求）
@@ -309,8 +315,9 @@ const refreshBalances = async ({ force = false, silent = false } = {}) => {
   const ownsLoading = !loadingBalance.value
   if (ownsLoading) loadingBalance.value = true
   try {
-    // 展示矿工费固定按右侧「燃烧 TRX」模式估算，与当前选中的支付方式无关
-    const balances = await fetchWalletBalances(walletType.value.id, FEE_MODE.BURN, order.value.total)
+    // 展示矿工费按照当前选中的网络费支付方式进行动态链上估算
+    // Dynamically query balances and network fee estimate on-chain for the currently selected feeMode
+    const balances = await fetchWalletBalances(walletType.value.id, feeMode.value, order.value.total)
     const { resources, minerFee: feeInfo, ...balanceFields } = balances
     wallet.value = balanceFields
     walletResources.value = resources || { energy: 0, bandwidth: 0 }
@@ -407,12 +414,14 @@ const handlePay = async () => {
   // 支付前刷新矿工费，与 payByDeposit 使用同一估算链路
   await syncMinerFeeBeforePay()
 
-  // 同步矿工费后再校验（避免展示值与支付时不一致）
+  // 同步矿工费后再校验（避免展示值与支付时实际校验的值不一致）
+  // Re-validate everything after fee synchronization to prevent UI discrepancies during signature call
   const check = validatePaymentReadiness({
-    feeMode: feeMode.value,
-    usdt: wallet.value.usdt,
-    trx: wallet.value.trx,
-    orderTotal: order.value.total
+    feeMode: feeMode.value,             // 当前选择的费率模式：资源或直接燃烧 / Current fee payment mode
+    usdt: wallet.value.usdt,            // 钱包当前 USDT 余额 / Current USDT balance in wallet
+    trx: wallet.value.trx,              // 钱包当前 TRX 余额 / Current TRX balance in wallet
+    orderTotal: order.value.total,      // 订单所需支付的 USDT 总额 / USDT amount due for the order
+    minerFeeTrx: minerFeeTrx.value      // 传入当前预估消耗的 TRX 数值以供校验 / Pass estimated TRX fee for validation
   })
   if (!check.ok) {
     uni.showToast({ title: check.message, icon: 'none', duration: 2500 })

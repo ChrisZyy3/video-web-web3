@@ -76,6 +76,13 @@
 				</view>
 			</view>
 
+			<!-- 钱包内置浏览器中：引导到外部浏览器（体验更好，并把地址带过去自动识别 VIP） -->
+			<view v-if="showOpenInBrowser" class="action-btns">
+				<view class="btn-outline" @click="handleOpenInBrowser">
+					<text class="btn-outline-text">{{ t('mine.openInBrowser') }}</text>
+				</view>
+			</view>
+
 			<!-- <view class="qrcode-section">
 				<view class="qrcode-card" @click="handleQrPreview">
 					<image class="qrcode-img" :src="icons.qrcode" mode="aspectFit" />
@@ -112,7 +119,7 @@ import { useI18n } from 'vue-i18n'
 import tabbar from '@/components/tabbar/index'
 import memberSheet from '@/components/member-sheet/index'
 import walletSelect from '@/components/wallet-select/index'
-import { verifyMembershipByWallet, getConnectedWalletAddress, formatAddressShort, disconnectWallet, openWalletForVerify } from '@/utils/tron-pay'
+import { verifyMembershipByWallet, getConnectedWalletAddress, formatAddressShort, disconnectWallet, openWalletForVerify, isInjectedWalletBrowser, buildExternalBrowserUrl, openInExternalBrowser } from '@/utils/tron-pay'
 import { getLookMember } from '@/utils/look-member'
 import { getMobilePageLayout, getTabbarInsetPx, bindViewportResize } from '@/utils/h5-compat'
 import { onShow } from '@dcloudio/uni-app'
@@ -136,6 +143,10 @@ const showWalletSelect = ref(false)
 const isVip = ref(false)
 const connectedAddress = ref('')
 const connectedAddressShort = computed(() => formatAddressShort(connectedAddress.value))
+
+// 在钱包内置浏览器中且已连接钱包时，展示「在浏览器中打开」引导按钮
+const showOpenInBrowser = computed(() => isInjectedWalletBrowser() && !!connectedAddress.value)
+const handleOpenInBrowser = () => openInExternalBrowser(buildExternalBrowserUrl())
 
 // 刷新 VIP 激活态和钱包连接状态
 // Refresh VIP active status and wallet connection status

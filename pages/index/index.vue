@@ -138,7 +138,7 @@ import walletSelect from '@/components/wallet-select/index'
 import { getFavorites, toggleFavorite } from '@/utils/favorites'
 import { getLookVideo, setLookVideo, removeLookVideo } from '@/utils/look-video'
 import { getLookMember, setLookMember } from '@/utils/look-member'
-import { verifyMembershipByWallet, getConnectedWalletAddress, refreshMembershipByStoredAddress, openWalletForVerify } from '@/utils/tron-pay'
+import { verifyMembershipByWallet, getConnectedWalletAddress, refreshMembershipByStoredAddress, openWalletForVerify, isInjectedWalletBrowser, buildExternalBrowserUrl, openInExternalBrowser } from '@/utils/tron-pay'
 import { getMobilePageLayout, getTabbarInsetPx, bindViewportResize } from '@/utils/h5-compat'
 
 const { t } = useI18n()
@@ -427,7 +427,24 @@ onMounted(async () => {
   showMemberIntro.value = !getLookMember()
   const member = await refreshMembershipByStoredAddress()
   if (member) showMemberIntro.value = false
+  maybePromptOpenInBrowser()
 })
+
+// 在钱包内置浏览器中、且已是 VIP 时，引导用户去外部浏览器（体验更好）。本次会话只提示一次，避免频繁打扰
+const maybePromptOpenInBrowser = () => {
+  if (!isInjectedWalletBrowser() || !getLookMember() || !getConnectedWalletAddress()) return
+  if (sessionStorage.getItem('openInBrowserPrompted')) return
+  sessionStorage.setItem('openInBrowserPrompted', '1')
+  uni.showModal({
+    title: t('mine.browserPromptTitle'),
+    content: t('mine.browserPromptContent'),
+    confirmText: t('mine.goToBrowser'),
+    cancelText: t('mine.stayHere'),
+    success: (res) => {
+      if (res.confirm) openInExternalBrowser(buildExternalBrowserUrl())
+    }
+  })
+}
 
 onUnmounted(() => {
   // #ifdef H5
