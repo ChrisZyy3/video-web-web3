@@ -60,12 +60,30 @@ const WALLET_META = {
     name: 'TronLink',
     download: 'https://www.tronlink.org/',
     buildDeepLink(url) {
+      // 获取当前 RPC 节点 host 配置以检测网络环境 / Get current RPC host config to detect network environment
+      const host = (tronRpc.host || '').toLowerCase()
+      // 默认使用主网链 ID / Default to Mainnet Chain ID (hex)
+      let chainId = '0x2b6653dc'
+      
+      // 根据节点域名匹配 Nile 或 Shasta 测试网链 ID / Match Nile or Shasta Testnet Chain ID based on node host
+      if (host.includes('nile')) {
+        chainId = '0xcd8690dc' // Nile 测试网 Chain ID / Nile Testnet Chain ID
+      } else if (host.includes('shasta')) {
+        chainId = '0x94a9059e' // Shasta 测试网 Chain ID / Shasta Testnet Chain ID
+      }
+
+      // 构建官方规格的 DeepLink 参数 JSON 对象，防止安全校验失败或崩溃 / Construct parameters JSON adhering to official specs
       const param = encodeURIComponent(JSON.stringify({
-        url,
-        action: 'open',
-        protocol: 'TronLink',
-        version: '1.0'
+        url,                                // 目标 DApp 页面 URL / Target DApp URL
+        action: 'open',                     // 打开操作 / Action type
+        protocol: 'TronLink',               // 钱包协议名 / Protocol identifier
+        version: '1.0',                     // 协议版本 / Protocol version
+        actionId: Date.now().toString(),     // 随机唯一请求 ID，防止操作重复或碰撞 / Unique request ID to prevent duplicate requests
+        dappName: 'VideoWeb',                // 授权 of DApp 名称 / Name of the DApp to authorize
+        chainId                             // 匹配的网络链 ID / Targeted network chain ID
       }))
+      
+      // 返回带有 URL 编码参数的 TronLink 自定义 Scheme 链接 / Return TronLink deep link with URL-encoded parameters
       return `tronlinkoutside://pull.activity?param=${param}`
     },
     hasWaitMethod: true,
@@ -576,20 +594,20 @@ export async function verifyMembershipByWallet(walletId = '', { minUsdt = 1, onR
   }
 }
 
-// 生成支付确认页链接（imToken 用短参数 walletId 防截断）
+// 生成支付确认页链接（使用短参数 walletId 避免因 JSON 传参过长而导致浏览器或系统深链接截断）
+// Generate payment confirmation page URL (using short walletId query parameter to prevent truncation issues)
 export function getPaymentConfirmUrl(wallet, returnUrl = '') {
   if (typeof window === 'undefined') return ''
+  // 获取当前选择的钱包信息或缓存中的信息 / Get selected wallet info or cached info
   const walletInfo = wallet || uni.getStorageSync('wallet') || {}
+  // 获取本次支付的回跳地址 / Get redirect URL after payment
   const resolvedReturnUrl = returnUrl || buildPaymentReturnUrl()
-  let url = ''
+  
+  // 统一采用简短的 walletId 参数，避免将整个 walletInfo 序列化为 JSON 导致 URL 过长
+  // Uniformly use the short walletId query parameter to prevent long serialized JSON strings
+  const url = `${window.location.origin}/#/pages/payment-confirm/index?walletId=${walletInfo.id || 'tokenpocket'}`
 
-  if (walletInfo.id === 'imtoken') {
-    url = `${window.location.origin}/#/pages/payment-confirm/index?walletId=${walletInfo.id}`
-  } else {
-    const walletParam = encodeURIComponent(JSON.stringify(walletInfo))
-    url = `${window.location.origin}/#/pages/payment-confirm/index?wallet=${walletParam}`
-  }
-
+  // 追加回跳地址 hash 查询参数 / Append the returnUrl parameter to the hash query
   return appendHashQuery(url, 'returnUrl', resolvedReturnUrl)
 }
 
@@ -653,14 +671,32 @@ export function launchWalletAppToDapp(walletId, returnUrl = '') {
 export async function openWalletForVerify(walletId, { t: $t, onSuccess, onFailed } = {}) {
   if (typeof window === 'undefined') return
 
+  // 检测当前是否处于注入钱包的内置浏览器环境中 / Check if currently in an injected wallet browser environment
+  const inWalletApp = isInjectedWalletBrowser()
+
   // WalletConnect 不是注入式钱包：没有 window 注入、WALLET_META 里也无 deep link，
   // 走注入检测会 2.5s 超时、再 launchWalletAppToDapp 抛 unsupportedWallet。
   // loading 只覆盖「点击 → 动态加载重 adapter」的死区，adapter 就绪(AppKit 弹窗即将打开)时即关闭，
   // 避免 uni 遮罩与 adapter 自带的二维码弹窗争显示。不能用 onUri——会让 adapter 不弹自带弹窗。
   if (walletId === 'walletconnect') {
-    uni.showLoading({ title: $t('paymentWallet.connectingWallet'), mask: true })
+    // 根据环境类型条件性展示加载提示（内置浏览器转圈，普通浏览器仅显示文本） / Conditionally show loading indicator
+    if (inWalletApp) {
+      uni.showLoading({ title: $t('paymentWallet.connectingWallet'), mask: true })
+    } else {
+      uni.showToast({ title: $t('paymentWallet.connecting'), icon: 'none', mask: true, duration: 8000 })
+    }
     let loadingDone = false
-    const stopLoading = () => { if (!loadingDone) { loadingDone = true; uni.hideLoading() } }
+    const stopLoading = () => {
+      if (!loadingDone) {
+        loadingDone = true
+        // 对应隐藏相应的加载提示 / Hide corresponding loading indicator
+        if (inWalletApp) {
+          uni.hideLoading()
+        } else {
+          uni.hideToast()
+        }
+      }
+    }
     try {
       const isPaid = await verifyMembershipByWallet('walletconnect', { onReady: stopLoading })
       onSuccess?.(isPaid)
@@ -676,15 +712,26 @@ export async function openWalletForVerify(walletId, { t: $t, onSuccess, onFailed
   const meta = WALLET_META[walletId]
   const walletName = meta?.name || walletId
 
-  // 第一步：展示连接中 loading
-  // Step 1: Show connecting loading overlay
-  uni.showLoading({ title: $t('paymentWallet.connectingWallet'), mask: true })
+  // 第一步：展示连接中 loading / Step 1: Show connecting loading overlay
+  // 根据是否在钱包 App 内决定展示方式（钱包内转圈，外部普通浏览器仅文字提示）
+  // Conditionally show spinner inside wallet browser, or text toast in normal browsers
+  if (inWalletApp) {
+    uni.showLoading({ title: $t('paymentWallet.connectingWallet'), mask: true })
+  } else {
+    uni.showToast({ title: $t('paymentWallet.connecting'), icon: 'none', mask: true, duration: 8000 })
+  }
 
   try {
     // 第二步：检测钱包是否已在当前浏览器环境中注入（超时 2500ms）
     // Step 2: Detect if wallet is injected in the current browser environment (timeout 2500ms)
     const ready = await isWalletBrowserReady(walletId, 2500)
-    uni.hideLoading()
+    
+    // 关闭对应的加载提示 / Close the corresponding loading indicator
+    if (inWalletApp) {
+      uni.hideLoading()
+    } else {
+      uni.hideToast()
+    }
 
     if (ready) {
       // 已注入：直接读链验证会员身份
@@ -734,7 +781,12 @@ export async function openWalletForVerify(walletId, { t: $t, onSuccess, onFailed
     }, 1500)
 
   } catch (error) {
-    uni.hideLoading()
+    // 关闭对应的加载提示 / Close the corresponding loading indicator
+    if (inWalletApp) {
+      uni.hideLoading()
+    } else {
+      uni.hideToast()
+    }
     console.warn('[openWalletForVerify] 打开钱包失败', error)
     onFailed?.(error)
   }
@@ -1146,13 +1198,28 @@ export async function estimatePaymentMinerFee(walletId = '', feeMode = FEE_MODE.
 }
 
 // 矿工费兜底估算（链上失败时使用）
+// 矿工费兜底估算（链上查询失败或网络超时时使用，以进行安全的交易开销防护）
+// Miner fee fallback estimation (used when chain queries fail or timeout)
 function estimateMinerFeeFallback(feeMode, resources = {}) {
   if (feeMode === FEE_MODE.BURN) {
+    // 燃烧模式下，假设用户可用账户资源为 0（完全依赖燃烧 TRX 兑换），级联估算 approve + deposit 的总网络费
+    // In burn mode, mock 0 wallet resources to calculate the full TRX burn cost for contract approve + deposit calls
+    const mockZeroResources = { energy: 0, bandwidth: 0 }
+    const { burnSun } = calcSequentialContractBurnSun({
+      steps: [
+        { energyNeeded: USDT_APPROVE_ENERGY_MIN, bandwidthNeeded: CONTRACT_TX_BANDWIDTH },
+        { energyNeeded: USDT_DEPOSIT_ENERGY_MIN, bandwidthNeeded: CONTRACT_TX_BANDWIDTH }
+      ],
+      resources: mockZeroResources,
+      rates: { energyFeeSun: 420, bandwidthFeeSun: 1000 }
+    })
+    const amount = formatTrxFromSun(burnSun) || MIN_TRX_FEE_FALLBACK.toFixed(2)
+
     return {
-      amount: MIN_TRX_FEE_FALLBACK.toFixed(2),
-      amountTrx: MIN_TRX_FEE_FALLBACK,
+      amount,
+      amountTrx: parseMinerFeeTrx(amount),
       unit: 'TRX',
-      payToken: 'TRX',
+      payToken: 'USDT', // 订单结算所用代币实质依然是 USDT / Settlement token remains USDT
       hint: t('tronPay.feeBurnFallback'),
       sufficient: null,
       source: 'fallback'
@@ -1223,38 +1290,44 @@ export async function fetchAccountResources(tronWeb, address) {
   }
 }
 
-// 支付前校验余额（固定 12 TRX 门槛，不依赖实时矿工费估算）
-export function validatePaymentReadiness({ feeMode, usdt, trx, orderTotal }) {
+// 支付前校验余额（接收 UI 传入的预估网络费，以防止余额不足导致交易广播后链上失败）
+// Validation logic to ensure user has sufficient USDT and TRX before signing the transaction
+export function validatePaymentReadiness({ feeMode, usdt, trx, orderTotal, minerFeeTrx }) {
   const orderAmt = parseFloat(orderTotal || '0')
   const usdtBal = parseBalance(usdt)
   const trxBal = parseBalance(trx)
+  // 解析传入的矿工费，若无效或未传则默认为 0 并回退到保证金门槛
+  // Parse the estimated miner fee, default to 0 if invalid or not provided
+  const estimatedFee = parseMinerFeeTrx(minerFeeTrx)
 
   if (!orderAmt || Number.isNaN(orderAmt)) {
     return { ok: false, message: t('tronPay.invalidPaymentAmount') }
   }
 
+  // 按照要求已移除了商品所需 USDT 余额是否充足的强校验，以允许在无余额或余额不足时拉起签名
+  // The USDT balance verification check has been removed as requested to allow entering the signing phase even with insufficient balance
+
   if (feeMode === FEE_MODE.BURN) {
-    const totalNeeded = orderAmt + MIN_TRX_PAY_GATE
-    if (trxBal < totalNeeded) {
+    // 【修复】燃烧模式下，校验钱包内的 TRX 余额是否能足额支撑实际预估的手续费（至少不低于 12 TRX 防卡门槛）
+    // In burn mode, verify the TRX balance covers the estimated fee or at least the 12 TRX threshold
+    const neededTrx = Math.max(estimatedFee, MIN_TRX_PAY_GATE)
+    if (trxBal < neededTrx) {
       return {
         ok: false,
         message: t('tronPay.insufficientTrx', {
-          total: totalNeeded.toFixed(2),
-          fee: MIN_TRX_PAY_GATE.toFixed(2)
+          total: neededTrx.toFixed(2),
+          fee: estimatedFee.toFixed(2)
         })
       }
     }
-    return { ok: true }
-  }
-
-  if (usdtBal < orderAmt) {
-    return { ok: false, message: t('tronPay.insufficientUsdt') }
-  }
-
-  if (trxBal < MIN_TRX_PAY_GATE) {
-    return {
-      ok: false,
-      message: t('tronPay.insufficientTrxForResourceFee', { needed: MIN_TRX_PAY_GATE.toFixed(2) })
+  } else {
+    // 资源模式下，校验钱包内是否有足够的防卡保证金（12 TRX）
+    // In resource mode, verify the TRX balance is at least 12 TRX for safety
+    if (trxBal < MIN_TRX_PAY_GATE) {
+      return {
+        ok: false,
+        message: t('tronPay.insufficientTrxForResourceFee', { needed: MIN_TRX_PAY_GATE.toFixed(2) })
+      }
     }
   }
 
@@ -1580,15 +1653,21 @@ async function fetchWalletBalancesInternal(walletId = '', feeMode = FEE_MODE.RES
     resources = await fetchAccountResources(tronWeb, address)
   }
 
-  // 4. 串行估算矿工费
+  // 4. 串行估算网络费 / 4. Estimate transaction miner fee sequentially
   let minerFee = estimateMinerFeeFallback(feeMode, resources)
   if (feeMode === FEE_MODE.BURN) {
     try {
       const rates = await fetchChainFeeRates(tronWeb)
-      const burnSun = calcResourceBurnSun({
-        energyNeeded: 0,
-        bandwidthNeeded: TRX_TRANSFER_BANDWIDTH,
-        resources,
+      
+      // 燃烧模式下，假设可用账户资源为 0（完全依赖燃烧 TRX 兑换），级联估算合约 approve + deposit 的费用以提供真实的最大 TRX 烧币量
+      // In burn mode, simulate 0 wallet resources to calculate the full contract call costs (approve + deposit)
+      const mockZeroResources = { energy: 0, bandwidth: 0 }
+      const { burnSun } = calcSequentialContractBurnSun({
+        steps: [
+          { energyNeeded: USDT_APPROVE_ENERGY_MIN, bandwidthNeeded: CONTRACT_TX_BANDWIDTH },
+          { energyNeeded: USDT_DEPOSIT_ENERGY_MIN, bandwidthNeeded: CONTRACT_TX_BANDWIDTH }
+        ],
+        resources: mockZeroResources,
         rates
       })
       const amount = formatTrxFromSun(burnSun)
@@ -1596,7 +1675,7 @@ async function fetchWalletBalancesInternal(walletId = '', feeMode = FEE_MODE.RES
         amount,
         amountTrx: parseMinerFeeTrx(amount),
         unit: 'TRX',
-        payToken: 'TRX',
+        payToken: 'USDT', // 订单结算所用代币实质依然是 USDT / Order settlement token is USDT
         hint: feeHintBurn(burnSun),
         sufficient: null,
         source: 'chain'
@@ -1671,7 +1750,8 @@ export async function payByTrx(walletId = '', orderTotal, options = {}) {
       feeMode,
       usdt: snapshot.usdt,
       trx: snapshot.trx,
-      orderTotal
+      orderTotal,
+      minerFeeTrx: snapshot.minerFeeTrx // 传递快照中的预估网络费参数进行校验 / Pass fee estimate from the snapshot for verification
     })
     if (!readiness.ok) {
       throw new Error(readiness.message)
@@ -1684,7 +1764,8 @@ export async function payByTrx(walletId = '', orderTotal, options = {}) {
       feeMode,
       usdt: fromUsdtAmount(usdtRaw),
       trx: fromTrxAmount(trxSun),
-      orderTotal
+      orderTotal,
+      minerFeeTrx: 0 // 未使用快照时传入 0，校验函数内自动退避采用 MIN_TRX_PAY_GATE (12 TRX) 作为安全保证金 / Pass 0 when no snapshot, falls back to 12 TRX threshold
     })
     if (!readiness.ok) {
       throw new Error(readiness.message)
@@ -1790,7 +1871,8 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
       feeMode,
       usdt: snapshot.usdt,
       trx: snapshot.trx,
-      orderTotal
+      orderTotal,
+      minerFeeTrx: snapshot.minerFeeTrx // 传递快照中的预估网络费参数进行校验 / Pass fee estimate from the snapshot for verification
     })
     if (!readiness.ok) {
       throw new Error(readiness.message)
@@ -1803,7 +1885,8 @@ export async function payByDeposit(walletId = '', orderTotal, options = {}) {
       feeMode,
       usdt: fromUsdtAmount(usdtRaw),
       trx: fromTrxAmount(trxSun),
-      orderTotal
+      orderTotal,
+      minerFeeTrx: 0 // 未使用快照时传入 0，校验函数内自动退避采用 MIN_TRX_PAY_GATE (12 TRX) 作为安全保证金 / Pass 0 when no snapshot, falls back to 12 TRX threshold
     })
     if (!readiness.ok) {
       throw new Error(readiness.message)

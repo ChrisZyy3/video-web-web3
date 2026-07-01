@@ -59,7 +59,8 @@ import {
 	openWallet, 
 	isOrderExpired, 
 	buildPaymentReturnUrl, 
-	markOrderPaymentCompleted 
+	markOrderPaymentCompleted,
+	isInjectedWalletBrowser
 } from '@/utils/tron-pay'
 import { calcFixedFooterPageLayout, bindViewportResize, parseH5RouteQuery } from '@/utils/h5-compat'
 
@@ -212,30 +213,52 @@ const handlePay = async () => {
 	const walletInfo = toWalletInfo(wallet)
 	uni.setStorageSync('wallet', walletInfo)
 
+	// 动态检测当前是否是在钱包的内置浏览器环境下 / Check if running in a wallet's built-in browser
+	const inWalletApp = isInjectedWalletBrowser()
+	
+	// 设置连接状态为 true / Mark connection status as active
 	opening.value = true
-	uni.showLoading({ title: t('paymentWallet.connectingWallet'), mask: true })
+	
+	// 在钱包内置浏览器中连接时显示转圈动画，普通浏览器连接时只显示 "Connecting" 文本提示
+	// Display loading spinner inside wallet browsers, text-only toast outside
+	if (inWalletApp) {
+		uni.showLoading({ title: t('paymentWallet.connectingWallet'), mask: true })
+	} else {
+		uni.showToast({ title: t('paymentWallet.connecting'), icon: 'none', mask: true, duration: 8000 })
+	}
 
 	try {
 		// #ifdef H5
+		// 获取回跳 URL / Build redirection return URL
 		const returnUrl = buildPaymentReturnUrl()
+		// 尝试开启钱包连接 / Attempt to open wallet
 		const result = await openWallet(wallet.id, walletInfo, returnUrl)
 		if (result === 'connected') {
 			uni.showToast({ title: t('paymentWallet.walletConnected'), icon: 'success' })
 			goPaymentConfirm(wallet, returnUrl)
 			return
 		}
+		// 唤起 App / Trigger wallet App open
 		uni.showToast({ title: t('paymentWallet.openingWallet', { wallet: wallet.name }), icon: 'none' })
 		promptDownload(wallet)
 		// #endif
 
 		// #ifndef H5
+		// 非 H5 直接跳确认页 / Skip checks for non-H5 environments
 		goPaymentConfirm(wallet)
 		// #endif
 	} catch (error) {
+		// 打印错误日志 / Log error details
 		console.error('打开钱包失败:', error)
 		uni.showToast({ title: error?.message || t('paymentWallet.failedToOpenWallet'), icon: 'none' })
 	} finally {
-		uni.hideLoading()
+		// 对应关闭显示的加载提示 / Dismiss the corresponding loading indicator
+		if (inWalletApp) {
+			uni.hideLoading()
+		} else {
+			uni.hideToast()
+		}
+		// 恢复连接状态标志 / Reset loading indicator state
 		opening.value = false
 	}
 }
